@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'theme/app_theme.dart';
-import 'ui/theme_showcase_page.dart';
+import 'ui/main_page.dart';
 
 void main() {
   runApp(const CalendariDePagesosApp());
@@ -16,7 +16,7 @@ class CalendariDePagesosApp extends StatelessWidget {
       title: 'Terra i Sol',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      home: const ThemeShowcasePage(),
+      home: const MainPage(),
     );
   }
 }
