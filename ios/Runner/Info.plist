@@ -8,6 +8,8 @@
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
 	<string>Calendari De Pagesos</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Necessitem la teva ubicació per calcular les dades reals de la lluna des d'on ets.</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>

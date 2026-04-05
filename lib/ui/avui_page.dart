@@ -1,8 +1,11 @@
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../data/moon_data.dart';
+import '../data/moon_service.dart';
 import '../theme/app_theme.dart';
 
 class AvuiPage extends StatefulWidget {
@@ -14,8 +17,8 @@ class AvuiPage extends StatefulWidget {
 
 class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
   late final AnimationController _entryController;
-  late final AnimationController _moonFloatController;
-  late final Animation<double> _moonFloatAnimation;
+  static const MoonService _moonService = MoonService();
+  late Future<MoonData> _moonFuture;
 
   @override
   void initState() {
@@ -24,24 +27,12 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     )..forward();
-
-    _moonFloatController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 4200),
-    )..repeat(reverse: true);
-
-    _moonFloatAnimation = Tween<double>(begin: -4, end: 4).animate(
-      CurvedAnimation(
-        parent: _moonFloatController,
-        curve: Curves.easeInOutSine,
-      ),
-    );
+    _moonFuture = _moonService.loadCurrentMoonData();
   }
 
   @override
   void dispose() {
     _entryController.dispose();
-    _moonFloatController.dispose();
     super.dispose();
   }
 
@@ -74,9 +65,77 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
     );
   }
 
+  static const List<String> _weekdayNames = <String>[
+    'dilluns',
+    'dimarts',
+    'dimecres',
+    'dijous',
+    'divendres',
+    'dissabte',
+    'diumenge',
+  ];
+
+  static const List<String> _monthNames = <String>[
+    'gener',
+    'febrer',
+    'març',
+    'abril',
+    'maig',
+    'juny',
+    'juliol',
+    'agost',
+    'setembre',
+    'octubre',
+    'novembre',
+    'desembre',
+  ];
+
+  void _refreshMoonData() {
+    setState(() {
+      _moonFuture = _moonService.loadCurrentMoonData();
+    });
+  }
+
+  String _formatCatalanHeadlineDate(DateTime date) {
+    final String weekday = _capitalize(_weekdayNames[date.weekday - 1]);
+    final String month = _monthNames[date.month - 1];
+    const String vowels = 'aeiou';
+    final String prefix = vowels.contains(month[0]) ? "d'" : 'de ';
+
+    return '$weekday, ${date.day}\n$prefix$month';
+  }
+
+  String _capitalize(String value) {
+    if (value.isEmpty) {
+      return value;
+    }
+
+    return '${value[0].toUpperCase()}${value.substring(1)}';
+  }
+
+  Widget _buildMoonCardContent() {
+    return FutureBuilder<MoonData>(
+      future: _moonFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const _MoonCardLoading();
+        }
+
+        if (snapshot.hasError || !snapshot.hasData) {
+          return _MoonCardError(onRetry: _refreshMoonData);
+        }
+
+        return _MoonCardBody(
+          moonData: snapshot.data!,
+          onRefresh: _refreshMoonData,
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    const String moonPhaseLabel = 'Lluna Creixent';
+    final DateTime today = DateTime.now();
     final bool reduceMotion = MediaQuery.of(context).accessibleNavigation;
 
     final Animation<double> headerFade = _fade(0.00, 0.24, reduceMotion);
@@ -151,7 +210,7 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Dilluns, 14\nd\'Octubre',
+                        _formatCatalanHeadlineDate(today),
                         style: GoogleFonts.newsreader(
                           fontSize: 48,
                           height: 1.0,
@@ -193,48 +252,7 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
                   position: moonCardSlide,
                   child: _buildCard(
                     title: 'FASE DE LA LLUNA',
-                    child: Column(
-                      children: [
-                        const SizedBox(height: 16),
-                        AnimatedBuilder(
-                          animation: _moonFloatAnimation,
-                          child: Image.asset(
-                            _moonAssetForLabel(moonPhaseLabel),
-                            width: 96,
-                            height: 96,
-                            fit: BoxFit.contain,
-                          ),
-                          builder: (context, child) {
-                            return Transform.translate(
-                              offset: Offset(
-                                0,
-                                reduceMotion ? 0 : _moonFloatAnimation.value,
-                              ),
-                              child: child,
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          moonPhaseLabel,
-                          style: GoogleFonts.newsreader(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Visibilitat: 72%',
-                          style: GoogleFonts.newsreader(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.primary.withAlpha(180),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-                    ),
+                    child: _buildMoonCardContent(),
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -545,23 +563,6 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
       ),
     );
   }
-
-  String _moonAssetForLabel(String label) {
-    switch (label) {
-      case 'Lluna Nova':
-        return 'assets/imatges/llunanova.png';
-      case 'Lluna Plena':
-        return 'assets/imatges/llunaplena.png';
-      case 'Quart Creixent':
-        return 'assets/imatges/cuartcreixent.png';
-      case 'Quart Minvant':
-      case 'Lluna Minvant':
-        return 'assets/imatges/quartminvant.png';
-      case 'Lluna Creixent':
-      default:
-        return 'assets/imatges/llunacreixent.png';
-    }
-  }
 }
 
 class _AnimatedReveal extends StatelessWidget {
@@ -581,5 +582,208 @@ class _AnimatedReveal extends StatelessWidget {
       opacity: opacity,
       child: SlideTransition(position: position, child: child),
     );
+  }
+}
+
+class _MoonCardLoading extends StatelessWidget {
+  const _MoonCardLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const SizedBox(height: 24),
+        const SizedBox(
+          width: 96,
+          height: 96,
+          child: CircularProgressIndicator(
+            strokeWidth: 3,
+            color: AppColors.primary,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'Calculant les dades lunars...',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.newsreader(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: AppColors.primary,
+          ),
+        ),
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+}
+
+class _MoonCardError extends StatelessWidget {
+  const _MoonCardError({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const SizedBox(height: 16),
+        Icon(
+          Icons.error_outline,
+          size: 54,
+          color: AppColors.primary.withAlpha(180),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'No s\'han pogut carregar les dades de la lluna.',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.newsreader(
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+            color: AppColors.primary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Torna-ho a provar per recalcular la fase i la visibilitat local.',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.newsreader(
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+            color: AppColors.primary.withAlpha(180),
+            height: 1.3,
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextButton.icon(
+          onPressed: onRetry,
+          icon: const Icon(Icons.refresh, size: 16),
+          label: const Text('Reintenta'),
+          style: TextButton.styleFrom(
+            foregroundColor: AppColors.primary,
+          ),
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+}
+
+class _MoonCardBody extends StatelessWidget {
+  const _MoonCardBody({required this.moonData, required this.onRefresh});
+
+  final MoonData moonData;
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const SizedBox(height: 16),
+        _MoonPhaseDisc(
+          phaseLabel: moonData.phaseLabel,
+          size: 96,
+        ),
+        const SizedBox(height: 16),
+        Text(
+          moonData.phaseLabel,
+          textAlign: TextAlign.center,
+          style: GoogleFonts.newsreader(
+            fontSize: 24,
+            fontWeight: FontWeight.w700,
+            color: AppColors.primary,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Visibilitat: ${moonData.illuminationPercentage}%',
+          style: GoogleFonts.newsreader(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: AppColors.primary.withAlpha(180),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          moonData.localObservationLabel,
+          textAlign: TextAlign.center,
+          style: GoogleFonts.newsreader(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            height: 1.25,
+            color: AppColors.primary,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          moonData.sourceLabel,
+          textAlign: TextAlign.center,
+          style: GoogleFonts.newsreader(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            height: 1.3,
+            color: AppColors.primary.withAlpha(165),
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextButton.icon(
+          onPressed: onRefresh,
+          icon: const Icon(Icons.my_location_outlined, size: 16),
+          label: const Text('Actualitza'),
+          style: TextButton.styleFrom(
+            foregroundColor: AppColors.primary.withAlpha(190),
+            textStyle: GoogleFonts.newsreader(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+      ],
+    );
+  }
+}
+
+class _MoonPhaseDisc extends StatelessWidget {
+  const _MoonPhaseDisc({required this.phaseLabel, required this.size});
+
+  final String phaseLabel;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Center(
+        child: SvgPicture.asset(
+          _assetForPhaseLabel(phaseLabel),
+          width: size,
+          height: size,
+        ),
+      ),
+    );
+  }
+
+  String _assetForPhaseLabel(String label) {
+    switch (label) {
+      case 'Lluna Nova':
+        return 'assets/imatges/lluna_nova.svg';
+      case 'Lluna Creixent':
+        return 'assets/imatges/lluna_creixent.svg';
+      case 'Quart Creixent':
+        return 'assets/imatges/quart_creixent.svg';
+      case 'Lluna Gibosa Creixent':
+        return 'assets/imatges/lluna_gibosa_creixent.svg';
+      case 'Lluna Plena':
+        return 'assets/imatges/lluna_plena.svg';
+      case 'Lluna Gibosa Minvant':
+        return 'assets/imatges/lluna_gibosa_minvant.svg';
+      case 'Quart Minvant':
+        return 'assets/imatges/quart_minvant.svg';
+      case 'Lluna Minvant':
+        return 'assets/imatges/lluna_minvant.svg';
+      default:
+        return 'assets/imatges/lluna_creixent.svg';
+    }
   }
 }

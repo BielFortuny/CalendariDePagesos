@@ -1,0 +1,18 @@
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="50" cy="50" r="45" fill="#F5F1E6" />
+  <circle cx="35" cy="40" r="9" fill="#E4DDCB" />
+  <circle cx="65" cy="65" r="14" fill="#E4DDCB" />
+  <circle cx="72" cy="30" r="7" fill="#E4DDCB" />
+  <circle cx="45" cy="75" r="6" fill="#E4DDCB" />
+  <circle cx="28" cy="62" r="5" fill="#E4DDCB" />
+  <circle cx="55" cy="48" r="16" fill="#E4DDCB" />
+  <circle cx="78" cy="48" r="4" fill="#E4DDCB" />
+  <circle cx="25" cy="25" r="4" fill="#E4DDCB" />
+  <circle cx="50" cy="18" r="8" fill="#E4DDCB" />
+  <circle cx="80" cy="75" r="5" fill="#E4DDCB" />
+  <circle cx="60" cy="35" r="2" fill="#E4DDCB" />
+  <circle cx="35" cy="55" r="2" fill="#E4DDCB" />
+  <circle cx="40" cy="25" r="2.5" fill="#E4DDCB" />
+  <path d="M 50 5 A 22.5 45 0 0 1 50 95 A 45 45 0 0 0 50 5 Z" fill="#3D2B1F" />
+  <circle cx="50" cy="50" r="45" fill="none" stroke="#3D2B1F" stroke-width="6" />
+</svg>
