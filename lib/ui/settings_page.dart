@@ -17,15 +17,27 @@ class SettingsPage extends StatefulWidget {
   State<SettingsPage> createState() => _SettingsPageState();
 }
 
-class _SettingsPageState extends State<SettingsPage> {
+class _SettingsPageState extends State<SettingsPage>
+    with SingleTickerProviderStateMixin {
   late AppSettings _draftSettings;
+  late final AnimationController _entryController;
   late final Future<AppVersionInfo> _versionFuture;
   bool _hasInitializedDraft = false;
 
   @override
   void initState() {
     super.initState();
+    _entryController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    )..forward();
     _versionFuture = (widget.versionLoader ?? AppVersionInfo.load)();
+  }
+
+  @override
+  void dispose() {
+    _entryController.dispose();
+    super.dispose();
   }
 
   @override
@@ -56,13 +68,103 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() {});
   }
 
+  Animation<double> _fade(double begin, double end, bool reduceMotion) {
+    if (reduceMotion) {
+      return const AlwaysStoppedAnimation<double>(1);
+    }
+
+    return CurvedAnimation(
+      parent: _entryController,
+      curve: Interval(begin, end, curve: Curves.easeOutCubic),
+    );
+  }
+
+  Animation<Offset> _slide(
+    double begin,
+    double end,
+    bool reduceMotion, {
+    double offset = 0.04,
+  }) {
+    if (reduceMotion) {
+      return const AlwaysStoppedAnimation<Offset>(Offset.zero);
+    }
+
+    return Tween<Offset>(begin: Offset(0, offset), end: Offset.zero).animate(
+      CurvedAnimation(
+        parent: _entryController,
+        curve: Interval(begin, end, curve: Curves.easeOutCubic),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final AppSettingsController controller = AppSettingsScope.of(context);
     final AppSettings savedSettings = controller.settings;
     final bool hasChanges = _draftSettings != savedSettings;
     final bool highContrast = _draftSettings.highContrast;
+    final bool reduceMotion = MediaQuery.of(context).accessibleNavigation;
     final AppStrings strings = AppStrings(_draftSettings.language);
+
+    final Animation<double> headerFade = _fade(0.00, 0.18, reduceMotion);
+    final Animation<Offset> headerSlide = _slide(
+      0.00,
+      0.18,
+      reduceMotion,
+      offset: 0.05,
+    );
+    final Animation<double> dividerFade = _fade(0.08, 0.24, reduceMotion);
+    final Animation<Offset> dividerSlide = _slide(
+      0.08,
+      0.24,
+      reduceMotion,
+      offset: 0.025,
+    );
+    final Animation<double> fontSectionFade = _fade(0.12, 0.30, reduceMotion);
+    final Animation<Offset> fontSectionSlide = _slide(0.12, 0.30, reduceMotion);
+    final Animation<double> contrastSectionFade = _fade(
+      0.22,
+      0.40,
+      reduceMotion,
+    );
+    final Animation<Offset> contrastSectionSlide = _slide(
+      0.22,
+      0.40,
+      reduceMotion,
+    );
+    final Animation<double> notificationsSectionFade = _fade(
+      0.32,
+      0.52,
+      reduceMotion,
+    );
+    final Animation<Offset> notificationsSectionSlide = _slide(
+      0.32,
+      0.52,
+      reduceMotion,
+    );
+    final Animation<double> languageSectionFade = _fade(
+      0.44,
+      0.64,
+      reduceMotion,
+    );
+    final Animation<Offset> languageSectionSlide = _slide(
+      0.44,
+      0.64,
+      reduceMotion,
+    );
+    final Animation<double> aboutSectionFade = _fade(0.56, 0.78, reduceMotion);
+    final Animation<Offset> aboutSectionSlide = _slide(
+      0.56,
+      0.78,
+      reduceMotion,
+    );
+    final Animation<double> buttonFade = _fade(0.72, 1.0, reduceMotion);
+    final Animation<Offset> buttonSlide = _slide(
+      0.72,
+      1.0,
+      reduceMotion,
+      offset: 0.03,
+    );
 
     final Color pageColor = highContrast
         ? AppColors.neutralScale[9]
@@ -112,306 +214,364 @@ class _SettingsPageState extends State<SettingsPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          IconButton(
-                            onPressed: () => Navigator.of(context).maybePop(),
-                            icon: Icon(
-                              Icons.arrow_back_ios_new,
-                              color: titleColor,
-                              size: 20,
-                            ),
-                            visualDensity: VisualDensity.compact,
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  strings.settingsTitle,
-                                  style: GoogleFonts.newsreader(
-                                    fontSize: 40,
-                                    fontWeight: FontWeight.w800,
-                                    height: 0.95,
-                                    color: titleColor,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  strings.settingsIntro,
-                                  style: GoogleFonts.newsreader(
-                                    fontSize: 18,
-                                    fontStyle: FontStyle.italic,
-                                    color: subtitleColor,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Container(
-                        width: double.infinity,
-                        height: 1,
-                        margin: const EdgeInsets.symmetric(horizontal: 12),
-                        color: AppColors.tertiaryScale[6].withAlpha(
-                          highContrast ? 180 : 140,
-                        ),
-                      ),
-                      const SizedBox(height: 28),
-                      _SettingsSection(
-                        title: strings.fontSizeTitle,
-                        titleColor: titleColor,
-                        trailing: Text(
-                          'Tt',
-                          style: GoogleFonts.newsreader(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: titleColor,
-                          ),
-                        ),
-                        child: _SegmentedFontSizePicker(
-                          value: _draftSettings.fontSize,
-                          titleColor: titleColor,
-                          borderColor: borderColor,
-                          selectedColor: titleColor,
-                          selectedTextColor: pageColor,
-                          labelBuilder: strings.fontSizeLabel,
-                          onChanged: (AppFontSize value) {
-                            setState(() {
-                              _draftSettings = _draftSettings.copyWith(
-                                fontSize: value,
-                              );
-                            });
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 26),
-                      _SettingsSection(
-                        title: strings.highContrastTitle,
-                        titleColor: titleColor,
-                        child: _SwitchCard(
-                          borderColor: borderColor,
-                          accentColor: accentColor,
-                          surfaceColor: softPanelColor,
-                          titleColor: titleColor,
-                          subtitleColor: subtitleColor,
-                          value: _draftSettings.highContrast,
-                          title: strings.highContrastTitle,
-                          subtitle: strings.highContrastSubtitle,
-                          onChanged: (bool value) {
-                            setState(() {
-                              _draftSettings = _draftSettings.copyWith(
-                                highContrast: value,
-                              );
-                            });
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 26),
-                      _SettingsSection(
-                        title: strings.fieldNotificationsTitle,
-                        titleColor: titleColor,
-                        trailing: Icon(
-                          Icons.spa_outlined,
-                          color: accentColor,
-                          size: 18,
-                        ),
-                        child: Column(
+                      _SettingsReveal(
+                        opacity: headerFade,
+                        position: headerSlide,
+                        child: Row(
                           children: [
-                            _CheckboxCard(
-                              borderColor: borderColor,
-                              surfaceColor: cardColor,
-                              accentColor: accentColor,
-                              titleColor: titleColor,
-                              value: _draftSettings.sowingNotifications,
-                              label: strings.sowingNotificationsLabel,
-                              onChanged: (bool value) {
-                                setState(() {
-                                  _draftSettings = _draftSettings.copyWith(
-                                    sowingNotifications: value,
-                                  );
-                                });
-                              },
+                            IconButton(
+                              onPressed: () => Navigator.of(context).maybePop(),
+                              icon: Icon(
+                                Icons.arrow_back_ios_new,
+                                color: titleColor,
+                                size: 20,
+                              ),
+                              visualDensity: VisualDensity.compact,
                             ),
-                            const SizedBox(height: 12),
-                            _CheckboxCard(
-                              borderColor: borderColor,
-                              surfaceColor: cardColor,
-                              accentColor: accentColor,
-                              titleColor: titleColor,
-                              value: _draftSettings.weatherAlerts,
-                              label: strings.weatherAlertsLabel,
-                              onChanged: (bool value) {
-                                setState(() {
-                                  _draftSettings = _draftSettings.copyWith(
-                                    weatherAlerts: value,
-                                  );
-                                });
-                              },
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    strings.settingsTitle,
+                                    style: GoogleFonts.newsreader(
+                                      fontSize: 40,
+                                      fontWeight: FontWeight.w800,
+                                      height: 0.95,
+                                      color: titleColor,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    strings.settingsIntro,
+                                    style: GoogleFonts.newsreader(
+                                      fontSize: 18,
+                                      fontStyle: FontStyle.italic,
+                                      color: subtitleColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 26),
-                      _SettingsSection(
-                        title: strings.languageTitle,
-                        titleColor: titleColor,
-                        child: DropdownButtonFormField<AppLanguage>(
-                          initialValue: _draftSettings.language,
-                          isExpanded: true,
-                          icon: Icon(
-                            Icons.unfold_more_rounded,
-                            color: titleColor,
-                            size: 22,
+                      const SizedBox(height: 12),
+                      _SettingsReveal(
+                        opacity: dividerFade,
+                        position: dividerSlide,
+                        child: Container(
+                          width: double.infinity,
+                          height: 1,
+                          margin: const EdgeInsets.symmetric(horizontal: 12),
+                          color: AppColors.tertiaryScale[6].withAlpha(
+                            highContrast ? 180 : 140,
                           ),
-                          decoration: InputDecoration(
-                            fillColor: cardColor,
-                            contentPadding: const EdgeInsets.fromLTRB(
-                              16,
-                              20,
-                              12,
-                              20,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.zero,
-                              borderSide: BorderSide(
-                                color: titleColor,
-                                width: 1.5,
-                              ),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.zero,
-                              borderSide: BorderSide(
-                                color: titleColor,
-                                width: 1.5,
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.zero,
-                              borderSide: BorderSide(
-                                color: titleColor,
-                                width: 1.7,
-                              ),
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+                      _SettingsReveal(
+                        opacity: fontSectionFade,
+                        position: fontSectionSlide,
+                        child: _SettingsSection(
+                          title: strings.fontSizeTitle,
+                          titleColor: titleColor,
+                          trailing: Text(
+                            'Tt',
+                            style: GoogleFonts.newsreader(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: titleColor,
                             ),
                           ),
-                          dropdownColor: pageColor,
-                          iconEnabledColor: titleColor,
-                          style: GoogleFonts.newsreader(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: titleColor,
+                          child: _SegmentedFontSizePicker(
+                            value: _draftSettings.fontSize,
+                            titleColor: titleColor,
+                            borderColor: borderColor,
+                            selectedColor: titleColor,
+                            selectedTextColor: pageColor,
+                            labelBuilder: strings.fontSizeLabel,
+                            onChanged: (AppFontSize value) {
+                              setState(() {
+                                _draftSettings = _draftSettings.copyWith(
+                                  fontSize: value,
+                                );
+                              });
+                            },
                           ),
-                          items: AppLanguage.values
-                              .map(
-                                (AppLanguage language) =>
-                                    DropdownMenuItem<AppLanguage>(
-                                      value: language,
-                                      child: Text(
-                                        strings.languageOptionLabel(language),
-                                      ),
-                                    ),
-                              )
-                              .toList(growable: false),
-                          onChanged: (AppLanguage? value) {
-                            if (value == null) {
-                              return;
-                            }
-
-                            setState(() {
-                              _draftSettings = _draftSettings.copyWith(
-                                language: value,
-                              );
-                            });
-                          },
                         ),
                       ),
                       const SizedBox(height: 26),
-                      _SettingsSection(
-                        title: strings.aboutCalendarTitle,
-                        titleColor: titleColor,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                      _SettingsReveal(
+                        opacity: contrastSectionFade,
+                        position: contrastSectionSlide,
+                        child: _SettingsSection(
+                          title: strings.highContrastTitle,
+                          titleColor: titleColor,
+                          child: _SwitchCard(
+                            borderColor: borderColor,
+                            accentColor: accentColor,
+                            surfaceColor: softPanelColor,
+                            titleColor: titleColor,
+                            subtitleColor: subtitleColor,
+                            value: _draftSettings.highContrast,
+                            title: strings.highContrastTitle,
+                            subtitle: strings.highContrastSubtitle,
+                            onChanged: (bool value) {
+                              setState(() {
+                                _draftSettings = _draftSettings.copyWith(
+                                  highContrast: value,
+                                );
+                              });
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 26),
+                      _SettingsReveal(
+                        opacity: notificationsSectionFade,
+                        position: notificationsSectionSlide,
+                        child: _SettingsSection(
+                          title: strings.fieldNotificationsTitle,
+                          titleColor: titleColor,
+                          trailing: Icon(
+                            Icons.spa_outlined,
+                            color: accentColor,
+                            size: 18,
+                          ),
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              FutureBuilder<AppVersionInfo>(
-                                future: _versionFuture,
-                                builder:
-                                    (
-                                      BuildContext context,
-                                      AsyncSnapshot<AppVersionInfo> snapshot,
-                                    ) {
-                                      final AppVersionInfo? versionInfo =
-                                          snapshot.data;
-                                      final String versionLine =
-                                          versionInfo == null
-                                          ? strings.appVersionLine(
-                                              appName: strings.appTitle,
-                                              version: '...',
-                                              buildNumber: '',
-                                            )
-                                          : strings.appVersionLine(
-                                              appName: versionInfo.appName,
-                                              version: versionInfo.version,
-                                              buildNumber:
-                                                  versionInfo.buildNumber,
-                                            );
-
-                                      return Text(
-                                        versionLine,
-                                        style: GoogleFonts.newsreader(
-                                          fontSize: 17,
-                                          fontStyle: FontStyle.italic,
-                                          color: subtitleColor,
-                                        ),
-                                      );
-                                    },
+                              _CheckboxCard(
+                                borderColor: borderColor,
+                                surfaceColor: cardColor,
+                                accentColor: accentColor,
+                                titleColor: titleColor,
+                                value: _draftSettings.sowingNotifications,
+                                label: strings.sowingNotificationsLabel,
+                                onChanged: (bool value) {
+                                  setState(() {
+                                    _draftSettings = _draftSettings.copyWith(
+                                      sowingNotifications: value,
+                                    );
+                                  });
+                                },
                               ),
-                              const SizedBox(height: 10),
-                              Text(
-                                strings.settingsAboutBody,
-                                style: GoogleFonts.newsreader(
-                                  fontSize: 16,
-                                  height: 1.35,
-                                  color: titleColor.withAlpha(185),
-                                ),
+                              const SizedBox(height: 12),
+                              _CheckboxCard(
+                                borderColor: borderColor,
+                                surfaceColor: cardColor,
+                                accentColor: accentColor,
+                                titleColor: titleColor,
+                                value: _draftSettings.weatherAlerts,
+                                label: strings.weatherAlertsLabel,
+                                onChanged: (bool value) {
+                                  setState(() {
+                                    _draftSettings = _draftSettings.copyWith(
+                                      weatherAlerts: value,
+                                    );
+                                  });
+                                },
                               ),
                             ],
                           ),
                         ),
                       ),
-                      const SizedBox(height: 34),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: controller.isSaving ? null : _save,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: titleColor,
-                            foregroundColor: pageColor,
-                            disabledBackgroundColor: titleColor.withAlpha(120),
-                            padding: const EdgeInsets.symmetric(vertical: 18),
-                          ),
-                          child: controller.isSaving
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
+                      const SizedBox(height: 26),
+                      _SettingsReveal(
+                        opacity: languageSectionFade,
+                        position: languageSectionSlide,
+                        child: _SettingsSection(
+                          title: strings.languageTitle,
+                          titleColor: titleColor,
+                          child: DropdownButtonFormField<AppLanguage>(
+                            initialValue: _draftSettings.language,
+                            isExpanded: true,
+                            icon: Icon(
+                              Icons.unfold_more_rounded,
+                              color: titleColor,
+                              size: 22,
+                            ),
+                            decoration: InputDecoration(
+                              fillColor: cardColor,
+                              contentPadding: const EdgeInsets.fromLTRB(
+                                16,
+                                20,
+                                12,
+                                20,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.zero,
+                                borderSide: BorderSide(
+                                  color: titleColor,
+                                  width: 1.5,
+                                ),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.zero,
+                                borderSide: BorderSide(
+                                  color: titleColor,
+                                  width: 1.5,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.zero,
+                                borderSide: BorderSide(
+                                  color: titleColor,
+                                  width: 1.7,
+                                ),
+                              ),
+                            ),
+                            dropdownColor: pageColor,
+                            iconEnabledColor: titleColor,
+                            style: GoogleFonts.newsreader(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: titleColor,
+                            ),
+                            items: AppLanguage.values
+                                .map(
+                                  (AppLanguage language) =>
+                                      DropdownMenuItem<AppLanguage>(
+                                        value: language,
+                                        child: Text(
+                                          strings.languageOptionLabel(language),
+                                        ),
+                                      ),
                                 )
-                              : Text(
-                                  hasChanges
-                                      ? strings.saveChanges
-                                      : strings.settingsAlreadySaved,
+                                .toList(growable: false),
+                            onChanged: (AppLanguage? value) {
+                              if (value == null) {
+                                return;
+                              }
+
+                              setState(() {
+                                _draftSettings = _draftSettings.copyWith(
+                                  language: value,
+                                );
+                              });
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 26),
+                      _SettingsReveal(
+                        opacity: aboutSectionFade,
+                        position: aboutSectionSlide,
+                        child: _SettingsSection(
+                          title: strings.aboutCalendarTitle,
+                          titleColor: titleColor,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                FutureBuilder<AppVersionInfo>(
+                                  future: _versionFuture,
+                                  builder:
+                                      (
+                                        BuildContext context,
+                                        AsyncSnapshot<AppVersionInfo> snapshot,
+                                      ) {
+                                        final AppVersionInfo? versionInfo =
+                                            snapshot.data;
+                                        final String versionLine =
+                                            versionInfo == null
+                                            ? strings.appVersionLine(
+                                                appName: strings.appTitle,
+                                                version: '...',
+                                                buildNumber: '',
+                                              )
+                                            : strings.appVersionLine(
+                                                appName: versionInfo.appName,
+                                                version: versionInfo.version,
+                                                buildNumber:
+                                                    versionInfo.buildNumber,
+                                              );
+
+                                        return Text(
+                                          versionLine,
+                                          style: GoogleFonts.newsreader(
+                                            fontSize: 17,
+                                            fontStyle: FontStyle.italic,
+                                            color: subtitleColor,
+                                          ),
+                                        );
+                                      },
+                                ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  strings.settingsAboutBody,
                                   style: GoogleFonts.newsreader(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.w700,
+                                    fontSize: 16,
+                                    height: 1.35,
+                                    color: titleColor.withAlpha(185),
                                   ),
                                 ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 34),
+                      _SettingsReveal(
+                        opacity: buttonFade,
+                        position: buttonSlide,
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: controller.isSaving ? null : _save,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: titleColor,
+                              foregroundColor: pageColor,
+                              disabledBackgroundColor: titleColor.withAlpha(
+                                120,
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 18),
+                            ),
+                            child: AnimatedSwitcher(
+                              duration: reduceMotion
+                                  ? Duration.zero
+                                  : const Duration(milliseconds: 220),
+                              switchInCurve: Curves.easeOutCubic,
+                              switchOutCurve: Curves.easeOutCubic,
+                              transitionBuilder:
+                                  (Widget child, Animation<double> animation) {
+                                    return FadeTransition(
+                                      opacity: animation,
+                                      child: ScaleTransition(
+                                        scale: Tween<double>(
+                                          begin: 0.98,
+                                          end: 1,
+                                        ).animate(animation),
+                                        child: child,
+                                      ),
+                                    );
+                                  },
+                              child: controller.isSaving
+                                  ? const SizedBox(
+                                      key: ValueKey<String>('saving'),
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : Text(
+                                      hasChanges
+                                          ? strings.saveChanges
+                                          : strings.settingsAlreadySaved,
+                                      key: ValueKey<String>(
+                                        hasChanges ? 'save' : 'saved',
+                                      ),
+                                      style: GoogleFonts.newsreader(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                            ),
+                          ),
                         ),
                       ),
                     ],
@@ -464,6 +624,26 @@ class _SettingsSection extends StatelessWidget {
         const SizedBox(height: 12),
         child,
       ],
+    );
+  }
+}
+
+class _SettingsReveal extends StatelessWidget {
+  const _SettingsReveal({
+    required this.opacity,
+    required this.position,
+    required this.child,
+  });
+
+  final Animation<double> opacity;
+  final Animation<Offset> position;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: opacity,
+      child: SlideTransition(position: position, child: child),
     );
   }
 }
