@@ -4,12 +4,26 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../data/field_work_cache_store.dart';
+import '../data/field_work_data.dart';
+import '../data/field_work_service.dart';
 import '../data/moon_data.dart';
 import '../data/moon_service.dart';
+import '../data/saint_data.dart';
+import '../data/saint_service.dart';
 import '../theme/app_theme.dart';
 
 class AvuiPage extends StatefulWidget {
-  const AvuiPage({super.key});
+  const AvuiPage({
+    super.key,
+    this.moonService = const MoonService(),
+    this.saintService = const SaintService(),
+    this.fieldWorkService,
+  });
+
+  final MoonService moonService;
+  final SaintService saintService;
+  final FieldWorkService? fieldWorkService;
 
   @override
   State<AvuiPage> createState() => _AvuiPageState();
@@ -17,8 +31,9 @@ class AvuiPage extends StatefulWidget {
 
 class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
   late final AnimationController _entryController;
-  static const MoonService _moonService = MoonService();
   late Future<MoonData> _moonFuture;
+  late Future<SaintData> _saintFuture;
+  late Future<FieldWorkData> _fieldWorkFuture;
 
   @override
   void initState() {
@@ -27,8 +42,17 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     )..forward();
-    _moonFuture = _moonService.loadCurrentMoonData();
+    _moonFuture = widget.moonService.loadCurrentMoonData();
+    _saintFuture = widget.saintService.loadCurrentSaintData();
+    _fieldWorkFuture = _fieldWorkService.loadCurrentFieldWorkData();
   }
+
+  late final FieldWorkService _fieldWorkService =
+      widget.fieldWorkService ??
+      FieldWorkService(
+        cacheStore: FieldWorkCacheStore(),
+        moonService: widget.moonService,
+      );
 
   @override
   void dispose() {
@@ -92,7 +116,19 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
 
   void _refreshMoonData() {
     setState(() {
-      _moonFuture = _moonService.loadCurrentMoonData();
+      _moonFuture = widget.moonService.loadCurrentMoonData();
+    });
+  }
+
+  void _refreshSaintData() {
+    setState(() {
+      _saintFuture = widget.saintService.loadCurrentSaintData();
+    });
+  }
+
+  void _refreshFieldWorkData() {
+    setState(() {
+      _fieldWorkFuture = _fieldWorkService.loadCurrentFieldWorkData();
     });
   }
 
@@ -128,6 +164,160 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
         return _MoonCardBody(
           moonData: snapshot.data!,
           onRefresh: _refreshMoonData,
+        );
+      },
+    );
+  }
+
+  Widget _buildSaintHeaderSubtitle() {
+    return FutureBuilder<SaintData>(
+      future: _saintFuture,
+      builder: (context, snapshot) {
+        String headline = 'Carregant santoral...';
+
+        if (snapshot.connectionState == ConnectionState.done) {
+          if (snapshot.hasData) {
+            headline = snapshot.data!.headline;
+          } else {
+            headline = 'Santoral no disponible ara mateix';
+          }
+        }
+
+        return Text(
+          headline,
+          style: GoogleFonts.newsreader(
+            fontSize: 20,
+            fontStyle: FontStyle.italic,
+            fontWeight: FontWeight.w400,
+            color: AppColors.primary.withAlpha(150),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSaintCardContent() {
+    return FutureBuilder<SaintData>(
+      future: _saintFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const _SaintCardLoading();
+        }
+
+        if (snapshot.hasError || !snapshot.hasData) {
+          return _SaintCardError(onRetry: _refreshSaintData);
+        }
+
+        final SaintData saintData = snapshot.data!;
+
+        return Column(
+          children: [
+            const SizedBox(height: 8),
+            for (final SaintEntry entry in saintData.entries)
+              _buildSaintRow(entry.title, entry.sourceLabel),
+            const SizedBox(height: 8),
+            Text(
+              saintData.contextLabel,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.newsreader(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                height: 1.25,
+                color: AppColors.primary.withAlpha(175),
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: _refreshSaintData,
+              icon: const Icon(Icons.refresh, size: 16),
+              label: const Text('Actualitza'),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.primary.withAlpha(190),
+                textStyle: GoogleFonts.newsreader(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildFieldWorkSectionContent() {
+    return FutureBuilder<FieldWorkData>(
+      future: _fieldWorkFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const _FieldWorkSectionLoading();
+        }
+
+        if (snapshot.hasError || !snapshot.hasData) {
+          return _FieldWorkSectionError(onRetry: _refreshFieldWorkData);
+        }
+
+        final FieldWorkData fieldWorkData = snapshot.data!;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              fieldWorkData.weatherSummary,
+              style: GoogleFonts.newsreader(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                height: 1.35,
+                color: AppColors.neutral.withAlpha(210),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              fieldWorkData.lunarSummary,
+              style: GoogleFonts.newsreader(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                height: 1.3,
+                color: AppColors.neutral.withAlpha(210),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              fieldWorkData.sourceLabel,
+              style: GoogleFonts.newsreader(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                height: 1.25,
+                color: AppColors.neutral.withAlpha(170),
+              ),
+            ),
+            const SizedBox(height: 24),
+            for (int index = 0; index < fieldWorkData.tasks.length; index += 1)
+              _buildTimelineItem(
+                title: fieldWorkData.tasks[index].title,
+                description: fieldWorkData.tasks[index].description,
+                isLast: index == fieldWorkData.tasks.length - 1,
+              ),
+            const SizedBox(height: 32),
+            _buildProverbBox(fieldWorkData.proverb),
+            const SizedBox(height: 16),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: _refreshFieldWorkData,
+                icon: const Icon(Icons.refresh, size: 16),
+                label: const Text('Actualitza dades'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.neutral.withAlpha(220),
+                  textStyle: GoogleFonts.newsreader(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ],
         );
       },
     );
@@ -219,15 +409,7 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      Text(
-                        'Sant Calixt I, papa i màrtir',
-                        style: GoogleFonts.newsreader(
-                          fontSize: 20,
-                          fontStyle: FontStyle.italic,
-                          fontWeight: FontWeight.w400,
-                          color: AppColors.primary.withAlpha(150),
-                        ),
-                      ),
+                      _buildSaintHeaderSubtitle(),
                       const SizedBox(height: 24),
                       Align(
                         alignment: Alignment.centerLeft,
@@ -264,13 +446,7 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
                   child: _buildCard(
                     title: 'SANTS DEL DIA',
                     titleIcon: Icons.auto_awesome,
-                    child: Column(
-                      children: [
-                        _buildSaintRow('Sant Calixt I', 'Papa'),
-                        _buildSaintRow('Sant Gaudenci', 'Bisbe'),
-                        _buildSaintRow('Santa\nFortunata', 'Verge i\nmàrtir'),
-                      ],
-                    ),
+                    child: _buildSaintCardContent(),
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -319,83 +495,7 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
                           ],
                         ),
                         const SizedBox(height: 24),
-
-                        // Timeline / Tasks
-                        _buildTimelineItem(
-                          title: 'Sembrar cebes',
-                          description:
-                              'És el moment òptim per a les varietats primerenques.\nPrepareu la terra amb fem ben compostat i manteniu la humitat constant però sense embassaments.',
-                        ),
-                        _buildTimelineItem(
-                          title: 'Podar vinyes',
-                          description:
-                              'Inicieu la poda en verd per afavorir la circulació d\'aire.\nBusqueu els brots que no portin raïm i elimineu-los amb cura.',
-                          isLast: true,
-                        ),
-
-                        const SizedBox(height: 32),
-
-                        // Quote Box
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(24),
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: AppColors.outline.withAlpha(100),
-                              width: 1,
-                            ),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Text(
-                                '"Per Sant Calixt, el bon vi ja és vist."',
-                                textAlign: TextAlign.left,
-                                style: GoogleFonts.newsreader(
-                                  fontSize: 20,
-                                  fontStyle: FontStyle.italic,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.neutral,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: Text(
-                                  '— REFRANYER POPULAR',
-                                  textAlign: TextAlign.right,
-                                  style: GoogleFonts.newsreader(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 1.5,
-                                    color: AppColors.neutral.withAlpha(180),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        const SizedBox(height: 32),
-                        // Placeholder for tractor image
-                        Center(
-                          child: Container(
-                            width: 200,
-                            height: 200,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: AppColors.neutral.withAlpha(20),
-                            ),
-                            child: Center(
-                              child: Icon(
-                                Icons.agriculture_outlined,
-                                size: 80,
-                                color: AppColors.neutral.withAlpha(100),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
+                        _buildFieldWorkSectionContent(),
                       ],
                     ),
                   ),
@@ -563,6 +663,45 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
       ),
     );
   }
+
+  Widget _buildProverbBox(String proverb) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        border: Border.all(color: AppColors.outline.withAlpha(100), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            '"$proverb"',
+            textAlign: TextAlign.left,
+            style: GoogleFonts.newsreader(
+              fontSize: 20,
+              fontStyle: FontStyle.italic,
+              fontWeight: FontWeight.w600,
+              color: AppColors.neutral,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              '— REFRANYER POPULAR',
+              textAlign: TextAlign.right,
+              style: GoogleFonts.newsreader(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.5,
+                color: AppColors.neutral.withAlpha(180),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _AnimatedReveal extends StatelessWidget {
@@ -658,9 +797,169 @@ class _MoonCardError extends StatelessWidget {
           onPressed: onRetry,
           icon: const Icon(Icons.refresh, size: 16),
           label: const Text('Reintenta'),
-          style: TextButton.styleFrom(
-            foregroundColor: AppColors.primary,
+          style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+}
+
+class _SaintCardLoading extends StatelessWidget {
+  const _SaintCardLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const SizedBox(height: 24),
+        const SizedBox(
+          width: 42,
+          height: 42,
+          child: CircularProgressIndicator(
+            strokeWidth: 3,
+            color: AppColors.primary,
           ),
+        ),
+        const SizedBox(height: 14),
+        Text(
+          'Buscant el santoral d\'avui...',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.newsreader(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: AppColors.primary,
+          ),
+        ),
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+}
+
+class _SaintCardError extends StatelessWidget {
+  const _SaintCardError({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const SizedBox(height: 18),
+        Icon(
+          Icons.cloud_off_outlined,
+          size: 50,
+          color: AppColors.primary.withAlpha(170),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'No s\'ha pogut carregar el santoral.',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.newsreader(
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+            color: AppColors.primary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Reintenta-ho per recuperar els noms del dia segons la data actual.',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.newsreader(
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+            height: 1.3,
+            color: AppColors.primary.withAlpha(180),
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextButton.icon(
+          onPressed: onRetry,
+          icon: const Icon(Icons.refresh, size: 16),
+          label: const Text('Reintenta'),
+          style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+}
+
+class _FieldWorkSectionLoading extends StatelessWidget {
+  const _FieldWorkSectionLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const SizedBox(height: 24),
+        const SizedBox(
+          width: 42,
+          height: 42,
+          child: CircularProgressIndicator(
+            strokeWidth: 3,
+            color: AppColors.neutral,
+          ),
+        ),
+        const SizedBox(height: 14),
+        Text(
+          'Carregant previsio agraria real...',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.newsreader(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: AppColors.neutral,
+          ),
+        ),
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+}
+
+class _FieldWorkSectionError extends StatelessWidget {
+  const _FieldWorkSectionError({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const SizedBox(height: 18),
+        Icon(
+          Icons.cloud_off_outlined,
+          size: 50,
+          color: AppColors.neutral.withAlpha(180),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'No s\'ha pogut carregar la previsio del camp.',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.newsreader(
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+            color: AppColors.neutral,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Torna-ho a provar per obtenir recomanacions basades en meteorologia real.',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.newsreader(
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+            height: 1.3,
+            color: AppColors.neutral.withAlpha(190),
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextButton.icon(
+          onPressed: onRetry,
+          icon: const Icon(Icons.refresh, size: 16),
+          label: const Text('Reintenta'),
+          style: TextButton.styleFrom(foregroundColor: AppColors.neutral),
         ),
         const SizedBox(height: 16),
       ],
@@ -679,10 +978,7 @@ class _MoonCardBody extends StatelessWidget {
     return Column(
       children: [
         const SizedBox(height: 16),
-        _MoonPhaseDisc(
-          phaseLabel: moonData.phaseLabel,
-          size: 96,
-        ),
+        _MoonPhaseDisc(phaseLabel: moonData.phaseLabel, size: 96),
         const SizedBox(height: 16),
         Text(
           moonData.phaseLabel,

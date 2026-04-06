@@ -11,10 +11,37 @@ class MoonService {
   const MoonService();
 
   Future<MoonData> loadCurrentMoonData() async {
-    final DateTime generatedAt = DateTime.now();
+    return loadMoonDataFor(DateTime.now());
+  }
+
+  Future<MoonData> loadMoonDataFor(
+    DateTime date, {
+    double? latitude,
+    double? longitude,
+  }) async {
+    final DateTime generatedAt = date;
     final _MoonIllumination illumination = _calculateMoonIllumination(
       generatedAt.toUtc(),
     );
+
+    if (latitude != null && longitude != null) {
+      final _MoonPosition moonPosition = _calculateMoonPosition(
+        generatedAt.toUtc(),
+        latitude: latitude,
+        longitude: longitude,
+      );
+
+      return MoonData(
+        generatedAt: generatedAt,
+        phase: illumination.phase,
+        phaseLabel: _phaseLabel(illumination.phase),
+        illuminationFraction: illumination.fraction.clamp(0.0, 1.0).toDouble(),
+        locationState: MoonLocationState.available,
+        latitude: latitude,
+        longitude: longitude,
+        altitudeDegrees: moonPosition.altitudeDegrees,
+      );
+    }
 
     try {
       final Position position = await _determinePosition();
@@ -124,8 +151,7 @@ class MoonService {
 
     final double fraction = (1 + math.cos(incidenceAngle)) / 2;
     final double rawPhase =
-        0.5 +
-        0.5 * incidenceAngle * (angle < 0 ? -1 : 1) / math.pi;
+        0.5 + 0.5 * incidenceAngle * (angle < 0 ? -1 : 1) / math.pi;
     final double normalizedPhase = rawPhase - rawPhase.floorToDouble();
 
     return _MoonIllumination(fraction: fraction, phase: normalizedPhase);
@@ -206,15 +232,12 @@ class MoonService {
   _MoonCoordinates _moonCoordinates(double days) {
     final double eclipticLongitude =
         _radiansPerDegree * (218.316 + 13.176396 * days);
-    final double meanAnomaly =
-        _radiansPerDegree * (134.963 + 13.064993 * days);
-    final double meanDistance =
-        _radiansPerDegree * (93.272 + 13.22935 * days);
+    final double meanAnomaly = _radiansPerDegree * (134.963 + 13.064993 * days);
+    final double meanDistance = _radiansPerDegree * (93.272 + 13.22935 * days);
 
     final double longitude =
         eclipticLongitude + _radiansPerDegree * 6.289 * math.sin(meanAnomaly);
-    final double latitude =
-        _radiansPerDegree * 5.128 * math.sin(meanDistance);
+    final double latitude = _radiansPerDegree * 5.128 * math.sin(meanDistance);
     final double distance = 385001 - 20905 * math.cos(meanAnomaly);
 
     return _MoonCoordinates(
@@ -246,9 +269,7 @@ class MoonService {
   double _altitude(double hourAngle, double latitude, double declination) {
     return math.asin(
       math.sin(latitude) * math.sin(declination) +
-          math.cos(latitude) *
-              math.cos(declination) *
-              math.cos(hourAngle),
+          math.cos(latitude) * math.cos(declination) * math.cos(hourAngle),
     );
   }
 
@@ -256,9 +277,7 @@ class MoonService {
     final double safeAltitude = altitude < 0 ? 0 : altitude;
 
     return 0.0002967 /
-        math.tan(
-          safeAltitude + 0.00312536 / (safeAltitude + 0.08901179),
-        );
+        math.tan(safeAltitude + 0.00312536 / (safeAltitude + 0.08901179));
   }
 
   double _clampUnit(double value) => value.clamp(-1.0, 1.0).toDouble();
