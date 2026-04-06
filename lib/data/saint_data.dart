@@ -1,3 +1,6 @@
+import 'app_settings.dart';
+import '../l10n/app_strings.dart';
+
 class SaintEntry {
   const SaintEntry({
     required this.title,
@@ -78,14 +81,18 @@ class SaintData {
   }
 
   String get contextLabel {
+    return contextLabelFor(const AppStrings(AppLanguage.catala));
+  }
+
+  String contextLabelFor(AppStrings strings) {
     if (entries.isEmpty) {
-      return 'Dades del santoral internacional.';
+      return strings.saintContextNoRegions();
     }
 
-    final String regions = entries
-        .map((entry) => entry.sourceLabel)
-        .join(' · ');
+    final List<String> regions = entries
+        .map((entry) => strings.countryLabel(entry.countryCode))
+        .toList(growable: false);
 
-    return 'Dades del santoral internacional: $regions.';
+    return strings.saintContextWithRegions(regions);
   }
 }

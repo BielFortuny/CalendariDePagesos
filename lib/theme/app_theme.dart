@@ -66,28 +66,49 @@ abstract final class AppColors {
 }
 
 abstract final class AppTheme {
-  static ThemeData get lightTheme {
+  static ThemeData get lightTheme => buildLightTheme();
+
+  static ThemeData buildLightTheme({bool highContrast = false}) {
+    final Color primary = highContrast
+        ? AppColors.primaryScale[2]
+        : AppColors.primary;
+    final Color secondary = highContrast
+        ? AppColors.secondaryScale[3]
+        : AppColors.secondary;
+    final Color tertiary = highContrast
+        ? AppColors.tertiaryScale[0]
+        : AppColors.tertiary;
+    final Color surface = highContrast
+        ? AppColors.neutralScale[9]
+        : AppColors.neutral;
+    final Color surfaceSoft = highContrast
+        ? AppColors.neutralScale[9]
+        : AppColors.neutralSoft;
+    final Color outline = highContrast
+        ? AppColors.primaryScale[4]
+        : AppColors.outline;
+
     final ThemeData baseTheme = ThemeData(
       useMaterial3: true,
       colorScheme:
           ColorScheme.fromSeed(
-            seedColor: AppColors.primary,
+            seedColor: primary,
             brightness: Brightness.light,
           ).copyWith(
-            primary: AppColors.primary,
+            primary: primary,
             onPrimary: AppColors.neutral,
-            secondary: AppColors.secondary,
+            secondary: secondary,
             onSecondary: AppColors.neutral,
-            tertiary: AppColors.tertiary,
+            tertiary: tertiary,
             onTertiary: AppColors.neutral,
-            surface: AppColors.neutral,
-            onSurface: AppColors.tertiary,
+            surface: surface,
+            onSurface: tertiary,
             error: AppColors.error,
             onError: Colors.white,
-            outline: AppColors.outline,
+            outline: outline,
           ),
-      scaffoldBackgroundColor: AppColors.tertiary,
-      canvasColor: AppColors.neutral,
+      scaffoldBackgroundColor: tertiary,
+      canvasColor: surface,
     );
 
     final TextTheme textTheme =
@@ -96,67 +117,67 @@ abstract final class AppTheme {
             fontSize: 88,
             height: 0.95,
             fontWeight: FontWeight.w400,
-            color: AppColors.tertiary,
+            color: tertiary,
           ),
           displayMedium: GoogleFonts.newsreader(
             fontSize: 64,
             height: 0.98,
             fontWeight: FontWeight.w400,
-            color: AppColors.tertiary,
+            color: tertiary,
           ),
           headlineLarge: GoogleFonts.newsreader(
             fontSize: 38,
             height: 1.02,
             fontWeight: FontWeight.w500,
-            color: AppColors.tertiary,
+            color: tertiary,
           ),
           headlineMedium: GoogleFonts.newsreader(
             fontSize: 30,
             height: 1.05,
             fontWeight: FontWeight.w500,
-            color: AppColors.tertiary,
+            color: tertiary,
           ),
           titleLarge: GoogleFonts.newsreader(
             fontSize: 24,
             height: 1.1,
             fontWeight: FontWeight.w600,
-            color: AppColors.tertiary,
+            color: tertiary,
           ),
           titleMedium: GoogleFonts.newsreader(
             fontSize: 20,
             height: 1.1,
             fontWeight: FontWeight.w500,
-            color: AppColors.primary,
+            color: primary,
           ),
           bodyLarge: GoogleFonts.newsreader(
             fontSize: 22,
             height: 1.25,
             fontWeight: FontWeight.w400,
-            color: AppColors.primary,
+            color: primary,
           ),
           bodyMedium: GoogleFonts.newsreader(
             fontSize: 18,
             height: 1.35,
             fontWeight: FontWeight.w400,
-            color: AppColors.primary,
+            color: primary,
           ),
           labelLarge: GoogleFonts.newsreader(
             fontSize: 18,
             height: 1.1,
             fontWeight: FontWeight.w600,
-            color: AppColors.primary,
+            color: primary,
           ),
           labelMedium: GoogleFonts.newsreader(
             fontSize: 15,
             height: 1.1,
             fontWeight: FontWeight.w600,
-            color: AppColors.primary,
+            color: primary,
           ),
           labelSmall: GoogleFonts.newsreader(
             fontSize: 13,
             height: 1.1,
             fontWeight: FontWeight.w600,
-            color: AppColors.primary,
+            color: primary,
           ),
         );
 
@@ -176,49 +197,46 @@ abstract final class AppTheme {
           color: AppColors.neutral,
         ),
       ),
-      iconTheme: const IconThemeData(color: AppColors.primary, size: 22),
-      dividerTheme: const DividerThemeData(
-        color: AppColors.outline,
-        thickness: 1,
-      ),
+      iconTheme: IconThemeData(color: primary, size: 22),
+      dividerTheme: DividerThemeData(color: outline, thickness: 1),
       cardTheme: CardThemeData(
-        color: AppColors.neutralSoft,
+        color: surfaceSoft,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.zero,
-          side: const BorderSide(color: AppColors.outline),
+          side: BorderSide(color: outline),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.neutralSoft,
+        fillColor: surfaceSoft,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 18,
           vertical: 18,
         ),
         hintStyle: textTheme.bodyMedium?.copyWith(
-          color: AppColors.primary.withOpacity(0.68),
+          color: primary.withValues(alpha: 0.68),
         ),
-        prefixIconColor: AppColors.primary.withOpacity(0.7),
+        prefixIconColor: primary.withValues(alpha: 0.7),
         border: OutlineInputBorder(
           borderRadius: buttonRadius,
-          borderSide: const BorderSide(color: AppColors.outline),
+          borderSide: BorderSide(color: outline),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: buttonRadius,
-          borderSide: const BorderSide(color: AppColors.outline),
+          borderSide: BorderSide(color: outline),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: buttonRadius,
-          borderSide: const BorderSide(color: AppColors.primary, width: 1.2),
+          borderSide: BorderSide(color: primary, width: 1.4),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-          backgroundColor: AppColors.primary,
+          backgroundColor: primary,
           foregroundColor: AppColors.neutral,
           textStyle: textTheme.labelLarge,
           shape: RoundedRectangleBorder(borderRadius: buttonRadius),
@@ -227,8 +245,8 @@ abstract final class AppTheme {
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-          foregroundColor: AppColors.primary,
-          side: const BorderSide(color: AppColors.outline),
+          foregroundColor: primary,
+          side: BorderSide(color: outline),
           textStyle: textTheme.labelLarge,
           shape: RoundedRectangleBorder(borderRadius: buttonRadius),
         ),
@@ -236,15 +254,15 @@ abstract final class AppTheme {
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-          backgroundColor: AppColors.secondary,
+          backgroundColor: secondary,
           foregroundColor: AppColors.neutral,
           textStyle: textTheme.labelLarge,
           shape: RoundedRectangleBorder(borderRadius: buttonRadius),
         ),
       ),
       chipTheme: baseTheme.chipTheme.copyWith(
-        backgroundColor: AppColors.primary,
-        selectedColor: AppColors.secondary,
+        backgroundColor: primary,
+        selectedColor: secondary,
         disabledColor: AppColors.neutralStrong,
         labelStyle: textTheme.labelMedium?.copyWith(color: AppColors.neutral),
         side: BorderSide.none,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
+
+import '../l10n/app_strings.dart';
 import 'avui_page.dart';
 
 class MainPage extends StatefulWidget {
@@ -12,19 +13,24 @@ class MainPage extends StatefulWidget {
 class _MainPageState extends State<MainPage> {
   int _currentIndex = 1; // Avui by default
 
-  final List<Widget> _pages = [
-    const Center(child: Text('Calendari')),
-    const AvuiPage(),
-    const Center(child: Text('Consells')),
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final AppStrings strings = AppStrings.of(context);
+    final List<Widget> pages = <Widget>[
+      _PlaceholderSection(
+        label: strings.calendar,
+        subtitle: strings.comingSoon,
+      ),
+      const AvuiPage(),
+      _PlaceholderSection(label: strings.tips, subtitle: strings.comingSoon),
+    ];
+
     return Scaffold(
-      backgroundColor: AppColors.neutral,
-      body: _pages[_currentIndex],
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      body: pages[_currentIndex],
       bottomNavigationBar: _CustomBottomNavBar(
         currentIndex: _currentIndex,
+        labels: <String>[strings.calendar, strings.today, strings.tips],
         onTap: (index) {
           setState(() {
             _currentIndex = index;
@@ -40,44 +46,53 @@ class _CustomBottomNavBar extends StatelessWidget {
   static const Curve _animationCurve = Curves.easeOutCubic;
 
   final int currentIndex;
+  final List<String> labels;
   final ValueChanged<int> onTap;
 
-  const _CustomBottomNavBar({required this.currentIndex, required this.onTap});
+  const _CustomBottomNavBar({
+    required this.currentIndex,
+    required this.labels,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     final Duration duration = MediaQuery.of(context).accessibleNavigation
         ? Duration.zero
         : _animationDuration;
+    final ColorScheme colorScheme = Theme.of(context).colorScheme;
 
     return SafeArea(
       child: Container(
         height: 80,
-        decoration: const BoxDecoration(
-          color: AppColors.neutral,
-          border: Border(top: BorderSide(color: AppColors.primary, width: 3)),
+        decoration: BoxDecoration(
+          color: colorScheme.surface,
+          border: Border(top: BorderSide(color: colorScheme.primary, width: 3)),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _buildNavItem(
+              context: context,
               duration: duration,
               index: 0,
               icon: Icons.calendar_month_outlined,
-              label: 'Calendari',
+              label: labels[0],
             ),
             _buildNavItem(
+              context: context,
               duration: duration,
               index: 1,
               icon: Icons.calendar_today_outlined,
-              label: 'Avui',
+              label: labels[1],
             ),
             _buildNavItem(
+              context: context,
               duration: duration,
               index: 2,
               icon: Icons
                   .auto_awesome_outlined, // Placeholder for "Consells" (head with ?)
-              label: 'Consells',
+              label: labels[2],
             ),
           ],
         ),
@@ -86,12 +101,14 @@ class _CustomBottomNavBar extends StatelessWidget {
   }
 
   Widget _buildNavItem({
+    required BuildContext context,
     required Duration duration,
     required int index,
     required IconData icon,
     required String label,
   }) {
     final isSelected = currentIndex == index;
+    final ColorScheme colorScheme = Theme.of(context).colorScheme;
 
     return Expanded(
       child: Material(
@@ -104,18 +121,18 @@ class _CustomBottomNavBar extends StatelessWidget {
             curve: _animationCurve,
             builder: (context, value, child) {
               final Color foregroundColor = Color.lerp(
-                AppColors.primary,
-                AppColors.neutral,
+                colorScheme.primary,
+                colorScheme.onPrimary,
                 value,
               )!;
               final Color backgroundColor = Color.lerp(
                 Colors.transparent,
-                AppColors.primary,
+                colorScheme.primary,
                 value,
               )!;
               final Color indicatorColor = Color.lerp(
                 Colors.transparent,
-                AppColors.neutral.withAlpha(200),
+                colorScheme.onPrimary.withAlpha(200),
                 value,
               )!;
 
@@ -159,6 +176,40 @@ class _CustomBottomNavBar extends StatelessWidget {
               );
             },
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PlaceholderSection extends StatelessWidget {
+  const _PlaceholderSection({required this.label, required this.subtitle});
+
+  final String label;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme textTheme = Theme.of(context).textTheme;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: textTheme.headlineMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              subtitle,
+              style: textTheme.bodyMedium,
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
       ),
     );

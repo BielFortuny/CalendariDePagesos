@@ -1,3 +1,6 @@
+import 'app_settings.dart';
+import '../l10n/app_strings.dart';
+
 enum MoonLocationState {
   available,
   permissionDenied,
@@ -35,39 +38,47 @@ class MoonData {
   bool get isAboveHorizon => hasLocalObservation && altitudeDegrees! > 0;
 
   String get localObservationLabel {
+    return localObservationLabelFor(const AppStrings(AppLanguage.catala));
+  }
+
+  String localObservationLabelFor(AppStrings strings) {
     if (!hasLocalObservation) {
       switch (locationState) {
         case MoonLocationState.permissionDenied:
-          return 'Activa la ubicació per saber si la lluna es veu des d\'on ets.';
+          return strings.moonPermissionDeniedLabel();
         case MoonLocationState.permissionDeniedForever:
-          return 'Permet la ubicació als ajustos per calcular la visibilitat local.';
+          return strings.moonPermissionDeniedForeverLabel();
         case MoonLocationState.serviceDisabled:
-          return 'Activa els serveis d\'ubicació per obtenir la visibilitat real.';
+          return strings.moonServiceDisabledLabel();
         case MoonLocationState.unavailable:
-          return 'No s\'ha pogut determinar la teva ubicació ara mateix.';
+          return strings.moonLocationUnavailableLabel();
         case MoonLocationState.available:
-          return 'No hi ha prou dades per calcular la visibilitat local.';
+          return strings.moonInsufficientLocationLabel();
       }
     }
 
     final int degrees = altitudeDegrees!.abs().round();
 
     if (degrees == 0) {
-      return 'Ara mateix és pràcticament a l\'horitzó.';
+      return strings.moonAtHorizonLabel();
     }
 
     if (isAboveHorizon) {
-      return 'Ara és a $degrees° sobre l\'horitzó.';
+      return strings.moonAboveHorizonLabel(degrees);
     }
 
-    return 'Ara és a $degrees° sota l\'horitzó.';
+    return strings.moonBelowHorizonLabel(degrees);
   }
 
   String get sourceLabel {
+    return sourceLabelFor(const AppStrings(AppLanguage.catala));
+  }
+
+  String sourceLabelFor(AppStrings strings) {
     if (hasLocalObservation) {
-      return 'Calculat des de la teva ubicació actual.';
+      return strings.moonSourceWithLocation();
     }
 
-    return 'La fase és real, però falta la ubicació per calcular la visibilitat local.';
+    return strings.moonSourceWithoutLocation();
   }
 }

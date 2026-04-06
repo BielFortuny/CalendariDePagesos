@@ -28,6 +28,7 @@ class FieldWorkData {
     required this.sourceLabel,
     required this.tasks,
     required this.proverb,
+    this.languageCode = 'ca',
   });
 
   final DateTime generatedAt;
@@ -36,6 +37,7 @@ class FieldWorkData {
   final String sourceLabel;
   final List<FieldWorkTask> tasks;
   final String proverb;
+  final String languageCode;
 
   factory FieldWorkData.fromJson(Map<String, dynamic> json) {
     final Object? generatedAt = json['generatedAt'];
@@ -44,6 +46,7 @@ class FieldWorkData {
     final Object? sourceLabel = json['sourceLabel'];
     final Object? tasks = json['tasks'];
     final Object? proverb = json['proverb'];
+    final Object? languageCode = json['languageCode'];
 
     if (generatedAt is! String ||
         weatherSummary is! String ||
@@ -67,6 +70,9 @@ class FieldWorkData {
           )
           .toList(growable: false),
       proverb: proverb,
+      languageCode: languageCode is String && languageCode.isNotEmpty
+          ? languageCode
+          : 'ca',
     );
   }
 
@@ -78,6 +84,7 @@ class FieldWorkData {
       'sourceLabel': sourceLabel,
       'tasks': tasks.map((entry) => entry.toJson()).toList(growable: false),
       'proverb': proverb,
+      'languageCode': languageCode,
     };
   }
 }

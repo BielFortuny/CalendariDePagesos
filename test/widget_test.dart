@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:calendari_de_pagesos/data/app_settings.dart';
 import 'package:calendari_de_pagesos/data/field_work_data.dart';
 import 'package:calendari_de_pagesos/data/field_work_service.dart';
 import 'package:calendari_de_pagesos/data/moon_data.dart';
@@ -55,7 +56,9 @@ class _FakeSaintService extends SaintService {
 
 class _FakeFieldWorkService extends FieldWorkService {
   @override
-  Future<FieldWorkData> loadCurrentFieldWorkData() async {
+  Future<FieldWorkData> loadCurrentFieldWorkData({
+    AppLanguage language = AppLanguage.catala,
+  }) async {
     return FieldWorkData(
       generatedAt: DateTime(2026, 4, 6),
       weatherSummary:
@@ -116,4 +119,38 @@ void main() {
       expect(find.text('"Abril finit, hivern destruït."'), findsOneWidget);
     },
   );
+
+  testWidgets('renders localized today chrome in English', (
+    WidgetTester tester,
+  ) async {
+    GoogleFonts.config.allowRuntimeFetching = false;
+
+    final AppSettingsController controller = AppSettingsController(
+      store: AppSettingsStore(),
+      initialSettings: const AppSettings(
+        language: AppLanguage.english,
+        highContrast: true,
+      ),
+    );
+
+    await tester.pumpWidget(
+      AppSettingsScope(
+        controller: controller,
+        child: MaterialApp(
+          home: AvuiPage(
+            moonService: _FakeMoonService(),
+            saintService: _FakeSaintService(),
+            fieldWorkService: _FakeFieldWorkService(),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('TODAY'), findsOneWidget);
+    expect(find.text('MOON PHASE'), findsOneWidget);
+    expect(find.text('SAINTS OF THE DAY'), findsOneWidget);
+    expect(find.text('FIELD WORK'), findsOneWidget);
+  });
 }

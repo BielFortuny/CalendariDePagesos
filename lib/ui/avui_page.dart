@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../data/app_settings.dart';
 import '../data/field_work_cache_store.dart';
 import '../data/field_work_data.dart';
 import '../data/field_work_service.dart';
@@ -11,7 +12,9 @@ import '../data/moon_data.dart';
 import '../data/moon_service.dart';
 import '../data/saint_data.dart';
 import '../data/saint_service.dart';
+import '../l10n/app_strings.dart';
 import '../theme/app_theme.dart';
+import 'settings_page.dart';
 
 class AvuiPage extends StatefulWidget {
   const AvuiPage({
@@ -34,6 +37,7 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
   late Future<MoonData> _moonFuture;
   late Future<SaintData> _saintFuture;
   late Future<FieldWorkData> _fieldWorkFuture;
+  AppLanguage? _currentLanguage;
 
   @override
   void initState() {
@@ -44,7 +48,22 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
     )..forward();
     _moonFuture = widget.moonService.loadCurrentMoonData();
     _saintFuture = widget.saintService.loadCurrentSaintData();
-    _fieldWorkFuture = _fieldWorkService.loadCurrentFieldWorkData();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    final AppLanguage language = AppSettingsScope.settingsOf(context).language;
+
+    if (_currentLanguage == language) {
+      return;
+    }
+
+    _currentLanguage = language;
+    _fieldWorkFuture = _fieldWorkService.loadCurrentFieldWorkData(
+      language: language,
+    );
   }
 
   late final FieldWorkService _fieldWorkService =
@@ -89,31 +108,6 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
     );
   }
 
-  static const List<String> _weekdayNames = <String>[
-    'dilluns',
-    'dimarts',
-    'dimecres',
-    'dijous',
-    'divendres',
-    'dissabte',
-    'diumenge',
-  ];
-
-  static const List<String> _monthNames = <String>[
-    'gener',
-    'febrer',
-    'març',
-    'abril',
-    'maig',
-    'juny',
-    'juliol',
-    'agost',
-    'setembre',
-    'octubre',
-    'novembre',
-    'desembre',
-  ];
-
   void _refreshMoonData() {
     setState(() {
       _moonFuture = widget.moonService.loadCurrentMoonData();
@@ -128,25 +122,10 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
 
   void _refreshFieldWorkData() {
     setState(() {
-      _fieldWorkFuture = _fieldWorkService.loadCurrentFieldWorkData();
+      _fieldWorkFuture = _fieldWorkService.loadCurrentFieldWorkData(
+        language: AppSettingsScope.settingsOf(context).language,
+      );
     });
-  }
-
-  String _formatCatalanHeadlineDate(DateTime date) {
-    final String weekday = _capitalize(_weekdayNames[date.weekday - 1]);
-    final String month = _monthNames[date.month - 1];
-    const String vowels = 'aeiou';
-    final String prefix = vowels.contains(month[0]) ? "d'" : 'de ';
-
-    return '$weekday, ${date.day}\n$prefix$month';
-  }
-
-  String _capitalize(String value) {
-    if (value.isEmpty) {
-      return value;
-    }
-
-    return '${value[0].toUpperCase()}${value.substring(1)}';
   }
 
   Widget _buildMoonCardContent() {
@@ -170,16 +149,19 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
   }
 
   Widget _buildSaintHeaderSubtitle() {
+    final AppStrings strings = AppStrings.of(context);
+    final _TodayPalette palette = _TodayPalette.fromContext(context);
+
     return FutureBuilder<SaintData>(
       future: _saintFuture,
       builder: (context, snapshot) {
-        String headline = 'Carregant santoral...';
+        String headline = strings.loadingSaints;
 
         if (snapshot.connectionState == ConnectionState.done) {
           if (snapshot.hasData) {
             headline = snapshot.data!.headline;
           } else {
-            headline = 'Santoral no disponible ara mateix';
+            headline = strings.saintUnavailable;
           }
         }
 
@@ -189,7 +171,7 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
             fontSize: 20,
             fontStyle: FontStyle.italic,
             fontWeight: FontWeight.w400,
-            color: AppColors.primary.withAlpha(150),
+            color: palette.secondaryText,
           ),
         );
       },
@@ -197,6 +179,8 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
   }
 
   Widget _buildSaintCardContent() {
+    final AppStrings strings = AppStrings.of(context);
+
     return FutureBuilder<SaintData>(
       future: _saintFuture,
       builder: (context, snapshot) {
@@ -214,25 +198,30 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
           children: [
             const SizedBox(height: 8),
             for (final SaintEntry entry in saintData.entries)
-              _buildSaintRow(entry.title, entry.sourceLabel),
+              _buildSaintRow(
+                entry.title,
+                strings.countryLabel(entry.countryCode),
+              ),
             const SizedBox(height: 8),
             Text(
-              saintData.contextLabel,
+              saintData.contextLabelFor(strings),
               textAlign: TextAlign.center,
               style: GoogleFonts.newsreader(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
                 height: 1.25,
-                color: AppColors.primary.withAlpha(175),
+                color: _TodayPalette.fromContext(context).tertiaryText,
               ),
             ),
             const SizedBox(height: 8),
             TextButton.icon(
               onPressed: _refreshSaintData,
               icon: const Icon(Icons.refresh, size: 16),
-              label: const Text('Actualitza'),
+              label: Text(strings.update),
               style: TextButton.styleFrom(
-                foregroundColor: AppColors.primary.withAlpha(190),
+                foregroundColor: _TodayPalette.fromContext(
+                  context,
+                ).secondaryText,
                 textStyle: GoogleFonts.newsreader(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
@@ -247,6 +236,9 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
   }
 
   Widget _buildFieldWorkSectionContent() {
+    final AppStrings strings = AppStrings.of(context);
+    final _TodayPalette palette = _TodayPalette.fromContext(context);
+
     return FutureBuilder<FieldWorkData>(
       future: _fieldWorkFuture,
       builder: (context, snapshot) {
@@ -269,7 +261,7 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
                 height: 1.35,
-                color: AppColors.neutral.withAlpha(210),
+                color: palette.fieldSecondaryText,
               ),
             ),
             const SizedBox(height: 8),
@@ -279,7 +271,7 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
                 height: 1.3,
-                color: AppColors.neutral.withAlpha(210),
+                color: palette.fieldSecondaryText,
               ),
             ),
             const SizedBox(height: 8),
@@ -289,7 +281,7 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
                 height: 1.25,
-                color: AppColors.neutral.withAlpha(170),
+                color: palette.fieldTertiaryText,
               ),
             ),
             const SizedBox(height: 24),
@@ -307,9 +299,9 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
               child: TextButton.icon(
                 onPressed: _refreshFieldWorkData,
                 icon: const Icon(Icons.refresh, size: 16),
-                label: const Text('Actualitza dades'),
+                label: Text(strings.updateData),
                 style: TextButton.styleFrom(
-                  foregroundColor: AppColors.neutral.withAlpha(220),
+                  foregroundColor: palette.fieldSecondaryText,
                   textStyle: GoogleFonts.newsreader(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
@@ -327,6 +319,8 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     final DateTime today = DateTime.now();
     final bool reduceMotion = MediaQuery.of(context).accessibleNavigation;
+    final AppStrings strings = AppStrings.of(context);
+    final _TodayPalette palette = _TodayPalette.fromContext(context);
 
     final Animation<double> headerFade = _fade(0.00, 0.24, reduceMotion);
     final Animation<Offset> headerSlide = _slide(
@@ -348,45 +342,40 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
     );
 
     return Scaffold(
-      backgroundColor: AppColors.neutral, // fallback
+      backgroundColor: palette.scaffoldBackground,
       appBar: AppBar(
-        backgroundColor: AppColors.neutral,
+        backgroundColor: palette.appBarBackground,
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.menu, color: AppColors.primary),
+          icon: Icon(Icons.menu, color: palette.primaryText),
           onPressed: () {},
         ),
         title: Text(
-          'AVUI',
+          strings.todayUppercase,
           style: GoogleFonts.newsreader(
             fontSize: 20,
             fontWeight: FontWeight.w800,
             letterSpacing: 2,
-            color: AppColors.primary,
+            color: palette.primaryText,
           ),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings_outlined, color: AppColors.primary),
-            onPressed: () {},
+            icon: Icon(Icons.settings_outlined, color: palette.primaryText),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (BuildContext context) => const SettingsPage(),
+                ),
+              );
+            },
           ),
         ],
       ),
       body: Container(
         width: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              Color(0xFF142436), // Deep navy/slate
-              Color(0xFF6FAC97), // Mid teal
-              Color(0xFFE6F5DF), // Bright soft green
-            ],
-            begin: Alignment.bottomLeft,
-            end: Alignment.topRight,
-            stops: [0.0, 0.5, 1.0],
-          ),
-        ),
+        decoration: BoxDecoration(gradient: palette.backgroundGradient),
         child: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
@@ -400,12 +389,12 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _formatCatalanHeadlineDate(today),
+                        strings.formatHeadlineDate(today),
                         style: GoogleFonts.newsreader(
                           fontSize: 48,
                           height: 1.0,
                           fontWeight: FontWeight.w900,
-                          color: AppColors.primary,
+                          color: palette.primaryText,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -419,7 +408,7 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
                           child: Container(
                             height: 2,
                             width: 40,
-                            color: AppColors.primary,
+                            color: palette.divider,
                           ),
                         ),
                       ),
@@ -433,7 +422,7 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
                   opacity: moonCardFade,
                   position: moonCardSlide,
                   child: _buildCard(
-                    title: 'FASE DE LA LLUNA',
+                    title: strings.moonPhaseSection,
                     child: _buildMoonCardContent(),
                   ),
                 ),
@@ -444,7 +433,7 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
                   opacity: saintsCardFade,
                   position: saintsCardSlide,
                   child: _buildCard(
-                    title: 'SANTS DEL DIA',
+                    title: strings.saintsOfDaySection,
                     titleIcon: Icons.auto_awesome,
                     child: _buildSaintCardContent(),
                   ),
@@ -457,7 +446,7 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
                   position: campSectionSlide,
                   child: Container(
                     width: double.infinity,
-                    color: AppColors.primary, // Dark brown
+                    color: palette.fieldBackground,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
                       vertical: 32,
@@ -469,12 +458,12 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              'FEINES DEL CAMP',
+                              strings.fieldWorkSection,
                               style: GoogleFonts.newsreader(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w700,
                                 letterSpacing: 2,
-                                color: AppColors.neutral.withAlpha(150),
+                                color: palette.fieldLabelText,
                               ),
                             ),
                             ImageFiltered(
@@ -483,7 +472,7 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
                                 sigmaY: 0.5,
                               ),
                               child: Opacity(
-                                opacity: 0.42,
+                                opacity: palette.fieldDecorationOpacity,
                                 child: Image.asset(
                                   'assets/imatges/fotoarbre.png',
                                   width: 40,
@@ -513,9 +502,11 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
     IconData? titleIcon,
     required Widget child,
   }) {
+    final _TodayPalette palette = _TodayPalette.fromContext(context);
+
     return Container(
       width: double.infinity,
-      color: AppColors.neutralSoft, // The light beige BG
+      color: palette.cardBackground,
       child: Column(
         children: [
           Padding(
@@ -529,7 +520,7 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if (titleIcon != null) ...[
-                  Icon(titleIcon, size: 18, color: AppColors.primary),
+                  Icon(titleIcon, size: 18, color: palette.primaryText),
                   const SizedBox(width: 8),
                 ],
                 Text(
@@ -538,7 +529,7 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1.5,
-                    color: AppColors.primary.withAlpha(200),
+                    color: palette.tertiaryText,
                   ),
                 ),
               ],
@@ -555,6 +546,8 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
   }
 
   Widget _buildSaintRow(String name, String role) {
+    final _TodayPalette palette = _TodayPalette.fromContext(context);
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: Row(
@@ -567,7 +560,7 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
               style: GoogleFonts.newsreader(
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
-                color: AppColors.primary,
+                color: palette.primaryText,
                 height: 1.2,
               ),
             ),
@@ -586,7 +579,7 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 2,
-                  color: AppColors.outline.withAlpha(140),
+                  color: palette.outline.withAlpha(140),
                 ),
               ),
             ),
@@ -600,7 +593,7 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
                 fontSize: 14,
                 fontStyle: FontStyle.italic,
                 fontWeight: FontWeight.w500,
-                color: AppColors.primary.withAlpha(150),
+                color: palette.secondaryText,
                 height: 1.2,
               ),
             ),
@@ -615,6 +608,7 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
     required String description,
     bool isLast = false,
   }) {
+    final _TodayPalette palette = _TodayPalette.fromContext(context);
     final double bottomPadding = isLast ? 32 : 44;
 
     return IntrinsicHeight(
@@ -625,7 +619,7 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
           Container(
             width: 5,
             decoration: BoxDecoration(
-              color: AppColors.secondaryScale[8],
+              color: palette.fieldAccent,
               borderRadius: BorderRadius.circular(999),
             ),
             margin: const EdgeInsets.only(right: 14, top: 4, bottom: 4),
@@ -642,7 +636,7 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
                     style: GoogleFonts.newsreader(
                       fontSize: 24,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.neutral,
+                      color: palette.fieldPrimaryText,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -652,7 +646,7 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
                       fontSize: 16,
                       fontWeight: FontWeight.w400,
                       height: 1.5,
-                      color: AppColors.neutral.withAlpha(200),
+                      color: palette.fieldSecondaryText,
                     ),
                   ),
                 ],
@@ -665,11 +659,14 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
   }
 
   Widget _buildProverbBox(String proverb) {
+    final AppStrings strings = AppStrings.of(context);
+    final _TodayPalette palette = _TodayPalette.fromContext(context);
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        border: Border.all(color: AppColors.outline.withAlpha(100), width: 1),
+        border: Border.all(color: palette.fieldOutline, width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -681,25 +678,130 @@ class _AvuiPageState extends State<AvuiPage> with TickerProviderStateMixin {
               fontSize: 20,
               fontStyle: FontStyle.italic,
               fontWeight: FontWeight.w600,
-              color: AppColors.neutral,
+              color: palette.fieldPrimaryText,
             ),
           ),
           const SizedBox(height: 16),
           Align(
             alignment: Alignment.centerRight,
             child: Text(
-              '— REFRANYER POPULAR',
+              strings.proverbAttribution,
               textAlign: TextAlign.right,
               style: GoogleFonts.newsreader(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.5,
-                color: AppColors.neutral.withAlpha(180),
+                color: palette.fieldTertiaryText,
               ),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _TodayPalette {
+  const _TodayPalette({
+    required this.scaffoldBackground,
+    required this.appBarBackground,
+    required this.backgroundGradient,
+    required this.primaryText,
+    required this.secondaryText,
+    required this.tertiaryText,
+    required this.divider,
+    required this.cardBackground,
+    required this.outline,
+    required this.fieldBackground,
+    required this.fieldPrimaryText,
+    required this.fieldSecondaryText,
+    required this.fieldTertiaryText,
+    required this.fieldLabelText,
+    required this.fieldAccent,
+    required this.fieldOutline,
+    required this.fieldDecorationOpacity,
+  });
+
+  final Color scaffoldBackground;
+  final Color appBarBackground;
+  final LinearGradient backgroundGradient;
+  final Color primaryText;
+  final Color secondaryText;
+  final Color tertiaryText;
+  final Color divider;
+  final Color cardBackground;
+  final Color outline;
+  final Color fieldBackground;
+  final Color fieldPrimaryText;
+  final Color fieldSecondaryText;
+  final Color fieldTertiaryText;
+  final Color fieldLabelText;
+  final Color fieldAccent;
+  final Color fieldOutline;
+  final double fieldDecorationOpacity;
+
+  static _TodayPalette fromContext(BuildContext context) {
+    return fromSettings(AppSettingsScope.settingsOf(context));
+  }
+
+  static _TodayPalette fromSettings(AppSettings settings) {
+    if (settings.highContrast) {
+      return _TodayPalette(
+        scaffoldBackground: AppColors.neutralScale[9],
+        appBarBackground: AppColors.neutralScale[9],
+        backgroundGradient: const LinearGradient(
+          colors: <Color>[
+            Color(0xFFFFFCF6),
+            Color(0xFFF3EAD6),
+            Color(0xFFE6D6B1),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        primaryText: AppColors.tertiaryScale[0],
+        secondaryText: AppColors.tertiaryScale[2].withAlpha(190),
+        tertiaryText: AppColors.tertiaryScale[1].withAlpha(210),
+        divider: AppColors.tertiaryScale[0],
+        cardBackground: Colors.white,
+        outline: AppColors.primaryScale[4],
+        fieldBackground: AppColors.tertiaryScale[0],
+        fieldPrimaryText: Colors.white,
+        fieldSecondaryText: Colors.white.withAlpha(220),
+        fieldTertiaryText: Colors.white.withAlpha(180),
+        fieldLabelText: Colors.white.withAlpha(170),
+        fieldAccent: AppColors.secondaryScale[2],
+        fieldOutline: Colors.white.withAlpha(90),
+        fieldDecorationOpacity: 0.18,
+      );
+    }
+
+    return _TodayPalette(
+      scaffoldBackground: AppColors.neutral,
+      appBarBackground: AppColors.neutral,
+      backgroundGradient: const LinearGradient(
+        colors: <Color>[
+          Color(0xFF142436),
+          Color(0xFF6FAC97),
+          Color(0xFFE6F5DF),
+        ],
+        begin: Alignment.bottomLeft,
+        end: Alignment.topRight,
+        stops: <double>[0.0, 0.5, 1.0],
+      ),
+      primaryText: AppColors.primary,
+      secondaryText: AppColors.primary.withAlpha(150),
+      tertiaryText: AppColors.primary.withAlpha(200),
+      divider: AppColors.primary,
+      cardBackground: AppColors.neutralSoft,
+      outline: AppColors.outline,
+      fieldBackground: AppColors.primary,
+      fieldPrimaryText: AppColors.neutral,
+      fieldSecondaryText: AppColors.neutral.withAlpha(210),
+      fieldTertiaryText: AppColors.neutral.withAlpha(170),
+      fieldLabelText: AppColors.neutral.withAlpha(150),
+      fieldAccent: AppColors.secondaryScale[8],
+      fieldOutline: AppColors.outline.withAlpha(100),
+      fieldDecorationOpacity: 0.42,
     );
   }
 }
@@ -729,25 +831,28 @@ class _MoonCardLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final AppStrings strings = AppStrings.of(context);
+    final _TodayPalette palette = _TodayPalette.fromContext(context);
+
     return Column(
       children: [
         const SizedBox(height: 24),
-        const SizedBox(
+        SizedBox(
           width: 96,
           height: 96,
           child: CircularProgressIndicator(
             strokeWidth: 3,
-            color: AppColors.primary,
+            color: palette.primaryText,
           ),
         ),
         const SizedBox(height: 16),
         Text(
-          'Calculant les dades lunars...',
+          strings.moonLoading,
           textAlign: TextAlign.center,
           style: GoogleFonts.newsreader(
             fontSize: 18,
             fontWeight: FontWeight.w600,
-            color: AppColors.primary,
+            color: palette.primaryText,
           ),
         ),
         const SizedBox(height: 24),
@@ -763,32 +868,31 @@ class _MoonCardError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final AppStrings strings = AppStrings.of(context);
+    final _TodayPalette palette = _TodayPalette.fromContext(context);
+
     return Column(
       children: [
         const SizedBox(height: 16),
-        Icon(
-          Icons.error_outline,
-          size: 54,
-          color: AppColors.primary.withAlpha(180),
-        ),
+        Icon(Icons.error_outline, size: 54, color: palette.secondaryText),
         const SizedBox(height: 12),
         Text(
-          'No s\'han pogut carregar les dades de la lluna.',
+          strings.moonLoadErrorTitle,
           textAlign: TextAlign.center,
           style: GoogleFonts.newsreader(
             fontSize: 22,
             fontWeight: FontWeight.w700,
-            color: AppColors.primary,
+            color: palette.primaryText,
           ),
         ),
         const SizedBox(height: 8),
         Text(
-          'Torna-ho a provar per recalcular la fase i la visibilitat local.',
+          strings.moonLoadErrorBody,
           textAlign: TextAlign.center,
           style: GoogleFonts.newsreader(
             fontSize: 15,
             fontWeight: FontWeight.w500,
-            color: AppColors.primary.withAlpha(180),
+            color: palette.secondaryText,
             height: 1.3,
           ),
         ),
@@ -796,8 +900,8 @@ class _MoonCardError extends StatelessWidget {
         TextButton.icon(
           onPressed: onRetry,
           icon: const Icon(Icons.refresh, size: 16),
-          label: const Text('Reintenta'),
-          style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+          label: Text(strings.retry),
+          style: TextButton.styleFrom(foregroundColor: palette.primaryText),
         ),
         const SizedBox(height: 16),
       ],
@@ -810,25 +914,28 @@ class _SaintCardLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final AppStrings strings = AppStrings.of(context);
+    final _TodayPalette palette = _TodayPalette.fromContext(context);
+
     return Column(
       children: [
         const SizedBox(height: 24),
-        const SizedBox(
+        SizedBox(
           width: 42,
           height: 42,
           child: CircularProgressIndicator(
             strokeWidth: 3,
-            color: AppColors.primary,
+            color: palette.primaryText,
           ),
         ),
         const SizedBox(height: 14),
         Text(
-          'Buscant el santoral d\'avui...',
+          strings.saintsLoading,
           textAlign: TextAlign.center,
           style: GoogleFonts.newsreader(
             fontSize: 18,
             fontWeight: FontWeight.w600,
-            color: AppColors.primary,
+            color: palette.primaryText,
           ),
         ),
         const SizedBox(height: 24),
@@ -844,41 +951,40 @@ class _SaintCardError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final AppStrings strings = AppStrings.of(context);
+    final _TodayPalette palette = _TodayPalette.fromContext(context);
+
     return Column(
       children: [
         const SizedBox(height: 18),
-        Icon(
-          Icons.cloud_off_outlined,
-          size: 50,
-          color: AppColors.primary.withAlpha(170),
-        ),
+        Icon(Icons.cloud_off_outlined, size: 50, color: palette.secondaryText),
         const SizedBox(height: 12),
         Text(
-          'No s\'ha pogut carregar el santoral.',
+          strings.saintsLoadErrorTitle,
           textAlign: TextAlign.center,
           style: GoogleFonts.newsreader(
             fontSize: 22,
             fontWeight: FontWeight.w700,
-            color: AppColors.primary,
+            color: palette.primaryText,
           ),
         ),
         const SizedBox(height: 8),
         Text(
-          'Reintenta-ho per recuperar els noms del dia segons la data actual.',
+          strings.saintsLoadErrorBody,
           textAlign: TextAlign.center,
           style: GoogleFonts.newsreader(
             fontSize: 15,
             fontWeight: FontWeight.w500,
             height: 1.3,
-            color: AppColors.primary.withAlpha(180),
+            color: palette.secondaryText,
           ),
         ),
         const SizedBox(height: 12),
         TextButton.icon(
           onPressed: onRetry,
           icon: const Icon(Icons.refresh, size: 16),
-          label: const Text('Reintenta'),
-          style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+          label: Text(strings.retry),
+          style: TextButton.styleFrom(foregroundColor: palette.primaryText),
         ),
         const SizedBox(height: 16),
       ],
@@ -891,25 +997,28 @@ class _FieldWorkSectionLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final AppStrings strings = AppStrings.of(context);
+    final _TodayPalette palette = _TodayPalette.fromContext(context);
+
     return Column(
       children: [
         const SizedBox(height: 24),
-        const SizedBox(
+        SizedBox(
           width: 42,
           height: 42,
           child: CircularProgressIndicator(
             strokeWidth: 3,
-            color: AppColors.neutral,
+            color: palette.fieldPrimaryText,
           ),
         ),
         const SizedBox(height: 14),
         Text(
-          'Carregant previsio agraria real...',
+          strings.fieldWorkLoading,
           textAlign: TextAlign.center,
           style: GoogleFonts.newsreader(
             fontSize: 18,
             fontWeight: FontWeight.w600,
-            color: AppColors.neutral,
+            color: palette.fieldPrimaryText,
           ),
         ),
         const SizedBox(height: 24),
@@ -925,41 +1034,46 @@ class _FieldWorkSectionError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final AppStrings strings = AppStrings.of(context);
+    final _TodayPalette palette = _TodayPalette.fromContext(context);
+
     return Column(
       children: [
         const SizedBox(height: 18),
         Icon(
           Icons.cloud_off_outlined,
           size: 50,
-          color: AppColors.neutral.withAlpha(180),
+          color: palette.fieldTertiaryText,
         ),
         const SizedBox(height: 12),
         Text(
-          'No s\'ha pogut carregar la previsio del camp.',
+          strings.fieldWorkLoadErrorTitle,
           textAlign: TextAlign.center,
           style: GoogleFonts.newsreader(
             fontSize: 22,
             fontWeight: FontWeight.w700,
-            color: AppColors.neutral,
+            color: palette.fieldPrimaryText,
           ),
         ),
         const SizedBox(height: 8),
         Text(
-          'Torna-ho a provar per obtenir recomanacions basades en meteorologia real.',
+          strings.fieldWorkLoadErrorBody,
           textAlign: TextAlign.center,
           style: GoogleFonts.newsreader(
             fontSize: 15,
             fontWeight: FontWeight.w500,
             height: 1.3,
-            color: AppColors.neutral.withAlpha(190),
+            color: palette.fieldSecondaryText,
           ),
         ),
         const SizedBox(height: 12),
         TextButton.icon(
           onPressed: onRetry,
           icon: const Icon(Icons.refresh, size: 16),
-          label: const Text('Reintenta'),
-          style: TextButton.styleFrom(foregroundColor: AppColors.neutral),
+          label: Text(strings.retry),
+          style: TextButton.styleFrom(
+            foregroundColor: palette.fieldPrimaryText,
+          ),
         ),
         const SizedBox(height: 16),
       ],
@@ -975,58 +1089,61 @@ class _MoonCardBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final AppStrings strings = AppStrings.of(context);
+    final _TodayPalette palette = _TodayPalette.fromContext(context);
+
     return Column(
       children: [
         const SizedBox(height: 16),
         _MoonPhaseDisc(phaseLabel: moonData.phaseLabel, size: 96),
         const SizedBox(height: 16),
         Text(
-          moonData.phaseLabel,
+          strings.moonPhaseLabel(moonData.phaseLabel),
           textAlign: TextAlign.center,
           style: GoogleFonts.newsreader(
             fontSize: 24,
             fontWeight: FontWeight.w700,
-            color: AppColors.primary,
+            color: palette.primaryText,
           ),
         ),
         const SizedBox(height: 4),
         Text(
-          'Visibilitat: ${moonData.illuminationPercentage}%',
+          strings.moonVisibility(moonData.illuminationPercentage),
           style: GoogleFonts.newsreader(
             fontSize: 14,
             fontWeight: FontWeight.w500,
-            color: AppColors.primary.withAlpha(180),
+            color: palette.secondaryText,
           ),
         ),
         const SizedBox(height: 10),
         Text(
-          moonData.localObservationLabel,
+          moonData.localObservationLabelFor(strings),
           textAlign: TextAlign.center,
           style: GoogleFonts.newsreader(
             fontSize: 16,
             fontWeight: FontWeight.w600,
             height: 1.25,
-            color: AppColors.primary,
+            color: palette.primaryText,
           ),
         ),
         const SizedBox(height: 6),
         Text(
-          moonData.sourceLabel,
+          moonData.sourceLabelFor(strings),
           textAlign: TextAlign.center,
           style: GoogleFonts.newsreader(
             fontSize: 13,
             fontWeight: FontWeight.w500,
             height: 1.3,
-            color: AppColors.primary.withAlpha(165),
+            color: palette.secondaryText,
           ),
         ),
         const SizedBox(height: 8),
         TextButton.icon(
           onPressed: onRefresh,
           icon: const Icon(Icons.my_location_outlined, size: 16),
-          label: const Text('Actualitza'),
+          label: Text(strings.update),
           style: TextButton.styleFrom(
-            foregroundColor: AppColors.primary.withAlpha(190),
+            foregroundColor: palette.secondaryText,
             textStyle: GoogleFonts.newsreader(
               fontSize: 14,
               fontWeight: FontWeight.w700,
