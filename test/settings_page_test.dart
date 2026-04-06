@@ -37,12 +37,51 @@ void main() {
     expect(find.text('Configuració'), findsOneWidget);
     expect(find.text('Mida de la lletra'), findsOneWidget);
     expect(find.text('Notificacions de feines del camp'), findsOneWidget);
-    expect(find.text('Configuració desada'), findsOneWidget);
     expect(find.textContaining('1.0.0+1'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('settings-save-bottom')),
+      findsOneWidget,
+    );
+
+    final AnimatedOpacity floatingOpacity = tester.widget(
+      find.byKey(const ValueKey<String>('settings-save-floating-opacity')),
+    );
+    expect(floatingOpacity.opacity, 1);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('settings-save-floating')),
+        matching: find.text('Configuració desada'),
+      ),
+      findsOneWidget,
+    );
 
     await tester.tap(find.text('Gran'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Desar canvis'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('settings-save-floating')),
+        matching: find.text('Desar canvis'),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.drag(
+      find.byType(SingleChildScrollView),
+      const Offset(0, -900),
+    );
+    await tester.pumpAndSettle();
+
+    final AnimatedOpacity floatingOpacityAfterScroll = tester.widget(
+      find.byKey(const ValueKey<String>('settings-save-floating-opacity')),
+    );
+    expect(floatingOpacityAfterScroll.opacity, 0);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('settings-save-bottom')),
+        matching: find.text('Desar canvis'),
+      ),
+      findsOneWidget,
+    );
   });
 }

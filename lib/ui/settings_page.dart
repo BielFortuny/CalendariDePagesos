@@ -19,10 +19,17 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage>
     with SingleTickerProviderStateMixin {
+  static const double _floatingButtonClearance = 88;
+
   late AppSettings _draftSettings;
   late final AnimationController _entryController;
   late final Future<AppVersionInfo> _versionFuture;
+  final ScrollController _scrollController = ScrollController();
+  final GlobalKey _viewportKey = GlobalKey();
+  final GlobalKey _bottomSaveButtonKey = GlobalKey();
   bool _hasInitializedDraft = false;
+  bool _showFloatingSaveButton = false;
+  bool _visibilityCheckScheduled = false;
 
   @override
   void initState() {
@@ -31,11 +38,15 @@ class _SettingsPageState extends State<SettingsPage>
       vsync: this,
       duration: const Duration(milliseconds: 1100),
     )..forward();
+    _scrollController.addListener(_updateFloatingSaveButtonVisibility);
     _versionFuture = (widget.versionLoader ?? AppVersionInfo.load)();
   }
 
   @override
   void dispose() {
+    _scrollController
+      ..removeListener(_updateFloatingSaveButtonVisibility)
+      ..dispose();
     _entryController.dispose();
     super.dispose();
   }
@@ -95,6 +106,64 @@ class _SettingsPageState extends State<SettingsPage>
         curve: Interval(begin, end, curve: Curves.easeOutCubic),
       ),
     );
+  }
+
+  void _scheduleFloatingButtonVisibilityCheck() {
+    if (_visibilityCheckScheduled) {
+      return;
+    }
+
+    _visibilityCheckScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _visibilityCheckScheduled = false;
+
+      if (!mounted) {
+        return;
+      }
+
+      _updateFloatingSaveButtonVisibility();
+    });
+  }
+
+  void _updateFloatingSaveButtonVisibility() {
+    final BuildContext? viewportContext = _viewportKey.currentContext;
+    final BuildContext? buttonContext = _bottomSaveButtonKey.currentContext;
+
+    if (viewportContext == null || buttonContext == null) {
+      return;
+    }
+
+    final RenderObject? viewportObject = viewportContext.findRenderObject();
+    final RenderObject? buttonObject = buttonContext.findRenderObject();
+
+    if (viewportObject is! RenderBox || buttonObject is! RenderBox) {
+      return;
+    }
+
+    final Offset buttonTopLeft = buttonObject.localToGlobal(
+      Offset.zero,
+      ancestor: viewportObject,
+    );
+    final Offset buttonBottomRight = buttonObject.localToGlobal(
+      buttonObject.size.bottomRight(Offset.zero),
+      ancestor: viewportObject,
+    );
+    final double visibleBottom =
+        viewportObject.size.height - _floatingButtonClearance;
+    final bool buttonVisibleInViewport =
+        buttonBottomRight.dy > 0 && buttonTopLeft.dy < visibleBottom;
+    final bool canScroll =
+        _scrollController.hasClients &&
+        _scrollController.position.maxScrollExtent > 0;
+    final bool shouldShowFloatingButton = canScroll && !buttonVisibleInViewport;
+
+    if (shouldShowFloatingButton == _showFloatingSaveButton) {
+      return;
+    }
+
+    setState(() {
+      _showFloatingSaveButton = shouldShowFloatingButton;
+    });
   }
 
   @override
@@ -188,6 +257,8 @@ class _SettingsPageState extends State<SettingsPage>
         ? AppColors.secondaryScale[2]
         : AppColors.secondary;
 
+    _scheduleFloatingButtonVisibilityCheck();
+
     return Scaffold(
       backgroundColor: pageColor,
       body: Stack(
@@ -206,8 +277,10 @@ class _SettingsPageState extends State<SettingsPage>
           ),
           SafeArea(
             child: Align(
+              key: _viewportKey,
               alignment: Alignment.topCenter,
               child: SingleChildScrollView(
+                controller: _scrollController,
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 440),
@@ -517,64 +590,88 @@ class _SettingsPageState extends State<SettingsPage>
                       _SettingsReveal(
                         opacity: buttonFade,
                         position: buttonSlide,
-                        child: SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
+                        child: KeyedSubtree(
+                          key: _bottomSaveButtonKey,
+                          child: _SaveChangesButton(
+                            buttonKey: const ValueKey<String>(
+                              'settings-save-bottom',
+                            ),
+                            titleColor: titleColor,
+                            pageColor: pageColor,
+                            reduceMotion: reduceMotion,
+                            isSaving: controller.isSaving,
+                            hasChanges: hasChanges,
+                            saveLabel: strings.saveChanges,
+                            savedLabel: strings.settingsAlreadySaved,
                             onPressed: controller.isSaving ? null : _save,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: titleColor,
-                              foregroundColor: pageColor,
-                              disabledBackgroundColor: titleColor.withAlpha(
-                                120,
-                              ),
-                              padding: const EdgeInsets.symmetric(vertical: 18),
-                            ),
-                            child: AnimatedSwitcher(
-                              duration: reduceMotion
-                                  ? Duration.zero
-                                  : const Duration(milliseconds: 220),
-                              switchInCurve: Curves.easeOutCubic,
-                              switchOutCurve: Curves.easeOutCubic,
-                              transitionBuilder:
-                                  (Widget child, Animation<double> animation) {
-                                    return FadeTransition(
-                                      opacity: animation,
-                                      child: ScaleTransition(
-                                        scale: Tween<double>(
-                                          begin: 0.98,
-                                          end: 1,
-                                        ).animate(animation),
-                                        child: child,
-                                      ),
-                                    );
-                                  },
-                              child: controller.isSaving
-                                  ? const SizedBox(
-                                      key: ValueKey<String>('saving'),
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : Text(
-                                      hasChanges
-                                          ? strings.saveChanges
-                                          : strings.settingsAlreadySaved,
-                                      key: ValueKey<String>(
-                                        hasChanges ? 'save' : 'saved',
-                                      ),
-                                      style: GoogleFonts.newsreader(
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                            ),
                           ),
                         ),
                       ),
                     ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: IgnorePointer(
+              ignoring: !_showFloatingSaveButton,
+              child: SafeArea(
+                top: false,
+                minimum: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 440),
+                    child: AnimatedSlide(
+                      duration: reduceMotion
+                          ? Duration.zero
+                          : const Duration(milliseconds: 220),
+                      curve: Curves.easeOutCubic,
+                      offset: _showFloatingSaveButton
+                          ? Offset.zero
+                          : const Offset(0, 1.1),
+                      child: AnimatedOpacity(
+                        key: const ValueKey<String>(
+                          'settings-save-floating-opacity',
+                        ),
+                        duration: reduceMotion
+                            ? Duration.zero
+                            : const Duration(milliseconds: 180),
+                        curve: Curves.easeOutCubic,
+                        opacity: _showFloatingSaveButton ? 1 : 0,
+                        child: Container(
+                          padding: const EdgeInsets.only(top: 28),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                pageColor.withAlpha(0),
+                                pageColor.withAlpha(highContrast ? 238 : 248),
+                              ],
+                            ),
+                          ),
+                          child: _SaveChangesButton(
+                            buttonKey: const ValueKey<String>(
+                              'settings-save-floating',
+                            ),
+                            titleColor: titleColor,
+                            pageColor: pageColor,
+                            reduceMotion: reduceMotion,
+                            isSaving: controller.isSaving,
+                            hasChanges: hasChanges,
+                            saveLabel: strings.saveChanges,
+                            savedLabel: strings.settingsAlreadySaved,
+                            onPressed: controller.isSaving ? null : _save,
+                            floating: true,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -644,6 +741,85 @@ class _SettingsReveal extends StatelessWidget {
     return FadeTransition(
       opacity: opacity,
       child: SlideTransition(position: position, child: child),
+    );
+  }
+}
+
+class _SaveChangesButton extends StatelessWidget {
+  const _SaveChangesButton({
+    required this.titleColor,
+    required this.pageColor,
+    required this.reduceMotion,
+    required this.isSaving,
+    required this.hasChanges,
+    required this.saveLabel,
+    required this.savedLabel,
+    required this.onPressed,
+    this.buttonKey,
+    this.floating = false,
+  });
+
+  final Color titleColor;
+  final Color pageColor;
+  final bool reduceMotion;
+  final bool isSaving;
+  final bool hasChanges;
+  final String saveLabel;
+  final String savedLabel;
+  final VoidCallback? onPressed;
+  final Key? buttonKey;
+  final bool floating;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        key: buttonKey,
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: titleColor,
+          foregroundColor: pageColor,
+          disabledBackgroundColor: titleColor.withAlpha(120),
+          elevation: floating ? 8 : null,
+          shadowColor: floating ? titleColor.withAlpha(70) : null,
+          padding: const EdgeInsets.symmetric(vertical: 18),
+        ),
+        child: AnimatedSwitcher(
+          duration: reduceMotion
+              ? Duration.zero
+              : const Duration(milliseconds: 220),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeOutCubic,
+          transitionBuilder: (Widget child, Animation<double> animation) {
+            return FadeTransition(
+              opacity: animation,
+              child: ScaleTransition(
+                scale: Tween<double>(begin: 0.98, end: 1).animate(animation),
+                child: child,
+              ),
+            );
+          },
+          child: isSaving
+              ? const SizedBox(
+                  key: ValueKey<String>('saving'),
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : Text(
+                  hasChanges ? saveLabel : savedLabel,
+                  key: ValueKey<String>(hasChanges ? 'save' : 'saved'),
+                  style: GoogleFonts.newsreader(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+        ),
+      ),
     );
   }
 }
